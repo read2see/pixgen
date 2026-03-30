@@ -3,6 +3,9 @@ PixGen is a Spring Boot-based REST API that provides an AI-powered image generat
 
 --- 
 
+## Trello Boards
+- [Week #1](https://trello.com/b/q33CT7qR/ga-project-3-week-1-tasks)
+
 ## Initial ERD
 
 ```mermaid
