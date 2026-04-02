@@ -1,7 +1,10 @@
 package com.ga.pixgen.controller;
 
+import com.ga.pixgen.dto.ChangePasswordRequest;
+import com.ga.pixgen.dto.ForgotPasswordRequest;
 import com.ga.pixgen.dto.LoginRequest;
 import com.ga.pixgen.dto.RegisterRequest;
+import com.ga.pixgen.dto.ResetPasswordRequest;
 import com.ga.pixgen.dto.SendVerificationRequest;
 import com.ga.pixgen.dto.UserResponse;
 import com.ga.pixgen.exception.ExpiredTokenException;
@@ -12,6 +15,7 @@ import com.ga.pixgen.security.CustomUserDetails;
 import com.ga.pixgen.security.JwtService;
 import com.ga.pixgen.service.AuthService;
 import com.ga.pixgen.service.EmailVerificationService;
+import com.ga.pixgen.service.PasswordResetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -44,6 +48,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final CookieFactory cookieFactory;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -63,6 +68,25 @@ public class AuthController {
     public Map<String, Boolean> verifyEmail(@RequestParam("token") UUID token) {
         emailVerificationService.verify(token);
         return Map.of("verified", true);
+    }
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    public Map<String, Boolean> resetPassword(@RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return Map.of("reset", true);
+    }
+
+    @PostMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@AuthenticationPrincipal CustomUserDetails principal,
+                               @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(principal.getUser(), request);
     }
 
     @PostMapping("/login")
