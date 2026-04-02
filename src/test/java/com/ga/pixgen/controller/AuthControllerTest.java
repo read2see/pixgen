@@ -3,12 +3,17 @@ package com.ga.pixgen.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ga.pixgen.dto.LoginRequest;
 import com.ga.pixgen.dto.RegisterRequest;
+import com.ga.pixgen.dto.SendVerificationRequest;
+import com.ga.pixgen.exception.ExpiredTokenException;
+import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
 import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.security.JwtService;
+import com.ga.pixgen.service.EmailService;
+import com.ga.pixgen.service.EmailVerificationService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +27,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -67,6 +76,12 @@ class AuthControllerTest {
     @MockitoBean
     private PermissionRepository permissionRepository;
 
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private EmailService emailService;
+
     @Test
     void register_createsUser_andReturns201_withUserResponse() throws Exception {
         Role role = sampleRole();
@@ -86,6 +101,62 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
                 .andExpect(jsonPath("$.username").value("alice"));
+
+        verify(emailVerificationService).issueToken("alice@example.com");
+    }
+
+    @Test
+    void sendVerification_returns202_andDelegatesToService() throws Exception {
+        SendVerificationRequest body = new SendVerificationRequest("alice@example.com");
+
+        mockMvc.perform(post("/api/auth/send-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
+
+        verify(emailVerificationService).issueToken("alice@example.com");
+    }
+
+    @Test
+    void sendVerification_returns202_evenWhenServiceIsNoop() throws Exception {
+        when(emailVerificationService.issueToken("ghost@example.com")).thenReturn(null);
+        SendVerificationRequest body = new SendVerificationRequest("ghost@example.com");
+
+        mockMvc.perform(post("/api/auth/send-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void verifyEmail_returns200_withVerifiedTrue_onHappyPath() throws Exception {
+        UUID token = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/auth/verify-email").param("token", token.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verified").value(true));
+
+        verify(emailVerificationService).verify(eq(token));
+    }
+
+    @Test
+    void verifyEmail_returns400_whenTokenIsInvalid() throws Exception {
+        UUID token = UUID.randomUUID();
+        doThrow(new InvalidTokenException("invalid"))
+                .when(emailVerificationService).verify(token);
+
+        mockMvc.perform(get("/api/auth/verify-email").param("token", token.toString()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void verifyEmail_returns410_whenTokenIsExpired() throws Exception {
+        UUID token = UUID.randomUUID();
+        doThrow(new ExpiredTokenException("expired"))
+                .when(emailVerificationService).verify(token);
+
+        mockMvc.perform(get("/api/auth/verify-email").param("token", token.toString()))
+                .andExpect(status().isGone());
     }
 
     @Test
