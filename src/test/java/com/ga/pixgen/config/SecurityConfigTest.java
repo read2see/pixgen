@@ -4,7 +4,10 @@ import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
+import com.ga.pixgen.repository.TokenRepository;
 import com.ga.pixgen.repository.UserRepository;
+import com.ga.pixgen.service.EmailService;
+import com.ga.pixgen.service.EmailVerificationService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +60,15 @@ class SecurityConfigTest {
 
     @MockitoBean
     private PermissionRepository permissionRepository;
+
+    @MockitoBean
+    private TokenRepository tokenRepository;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private EmailService emailService;
 
     @Test
     void securityFilterChainBeanIsExposed() {
