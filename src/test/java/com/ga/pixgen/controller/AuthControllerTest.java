@@ -1,8 +1,11 @@
 package com.ga.pixgen.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ga.pixgen.dto.ChangePasswordRequest;
+import com.ga.pixgen.dto.ForgotPasswordRequest;
 import com.ga.pixgen.dto.LoginRequest;
 import com.ga.pixgen.dto.RegisterRequest;
+import com.ga.pixgen.dto.ResetPasswordRequest;
 import com.ga.pixgen.dto.SendVerificationRequest;
 import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
@@ -14,6 +17,7 @@ import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.security.JwtService;
 import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
+import com.ga.pixgen.service.PasswordResetService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -78,6 +83,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private EmailService emailService;
@@ -233,6 +241,114 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(email))
                 .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void forgotPassword_returns202_andDelegatesToService() throws Exception {
+        ForgotPasswordRequest body = new ForgotPasswordRequest("alice@example.com");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
+
+        verify(passwordResetService).requestReset("alice@example.com");
+    }
+
+    @Test
+    void forgotPassword_returns202_evenWhenEmailUnknown() throws Exception {
+        ForgotPasswordRequest body = new ForgotPasswordRequest("ghost@example.com");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
+
+        verify(passwordResetService).requestReset("ghost@example.com");
+    }
+
+    @Test
+    void resetPassword_returns200_withResetTrue_onHappyPath() throws Exception {
+        UUID token = UUID.randomUUID();
+        ResetPasswordRequest body = new ResetPasswordRequest(token, "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reset").value(true));
+
+        verify(passwordResetService).resetPassword(eq(token), eq("NewPassword1!"));
+    }
+
+    @Test
+    void resetPassword_returns400_whenTokenIsInvalid() throws Exception {
+        UUID token = UUID.randomUUID();
+        doThrow(new InvalidTokenException("invalid"))
+                .when(passwordResetService).resetPassword(eq(token), any());
+        ResetPasswordRequest body = new ResetPasswordRequest(token, "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void resetPassword_returns410_whenTokenIsExpired() throws Exception {
+        UUID token = UUID.randomUUID();
+        doThrow(new ExpiredTokenException("expired"))
+                .when(passwordResetService).resetPassword(eq(token), any());
+        ResetPasswordRequest body = new ResetPasswordRequest(token, "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isGone());
+    }
+
+    @Test
+    void changePassword_returns401_whenNoCookiePresent() throws Exception {
+        ChangePasswordRequest body = new ChangePasswordRequest("currentPw", "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void changePassword_returns204_andDelegatesToAuthService_whenAuthenticated() throws Exception {
+        String email = "alice@example.com";
+        User user = sampleUser(email, "Password1!");
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        String token = jwtService.generateToken(email);
+
+        ChangePasswordRequest body = new ChangePasswordRequest("Password1!", "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .cookie(new Cookie("pixgen_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService, never()).resetPassword(any(), any());
+    }
+
+    @Test
+    void changePassword_returns401_whenCurrentPasswordDoesNotMatch() throws Exception {
+        String email = "alice@example.com";
+        User user = sampleUser(email, "Password1!");
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        String token = jwtService.generateToken(email);
+
+        ChangePasswordRequest body = new ChangePasswordRequest("WrongPw!", "NewPassword1!");
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .cookie(new Cookie("pixgen_token", token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isUnauthorized());
     }
 
     private Role sampleRole() {
