@@ -7,8 +7,6 @@ import com.ga.pixgen.dto.RegisterRequest;
 import com.ga.pixgen.dto.ResetPasswordRequest;
 import com.ga.pixgen.dto.SendVerificationRequest;
 import com.ga.pixgen.dto.UserResponse;
-import com.ga.pixgen.exception.ExpiredTokenException;
-import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.security.CookieFactory;
 import com.ga.pixgen.security.CustomUserDetails;
@@ -24,9 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -112,25 +108,5 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal CustomUserDetails principal) {
         return UserResponse.fromEntity(principal.getUser());
-    }
-
-    /**
-     * Until the global exception handler ships in Phase 1 / Day 5, translate
-     * failed AuthenticationManager attempts into 401 at the controller boundary
-     * so /api/auth/login does not bleed a 500 to the client.
-     */
-    @ExceptionHandler(AuthenticationException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public void handleAuthenticationException() {
-    }
-
-    @ExceptionHandler(InvalidTokenException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public void handleInvalidToken() {
-    }
-
-    @ExceptionHandler(ExpiredTokenException.class)
-    @ResponseStatus(HttpStatus.GONE)
-    public void handleExpiredToken() {
     }
 }
