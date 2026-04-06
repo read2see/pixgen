@@ -1,6 +1,7 @@
 package com.ga.pixgen.repository;
 
 import com.ga.pixgen.model.Job;
+import com.ga.pixgen.model.JobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,4 +26,15 @@ public interface JobRepository extends JpaRepository<Job, Long> {
              LIMIT :slots
             """, nativeQuery = true)
     List<Job> claimNextPending(@Param("slots") int slots);
+
+    long countByUserIdAndStatus(Long userId, JobStatus status);
+
+    @Query("""
+            SELECT COUNT(j)
+              FROM Job j
+             WHERE j.userId = :userId
+               AND j.status IN (com.ga.pixgen.model.JobStatus.PENDING,
+                                com.ga.pixgen.model.JobStatus.RUNNING)
+            """)
+    long countActiveByUser(@Param("userId") Long userId);
 }
