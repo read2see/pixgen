@@ -34,10 +34,10 @@ public class ImageMetadata {
     @JoinColumn(name = "image_id", unique = true, nullable = false)
     private Image image;
 
-    @Column(name = "model_name")
+    @Column(name = "model_name", length = 128)
     private String modelName;
 
-    @Column
+    @Column(length = 64)
     private String sampler;
 
     @Column
@@ -49,7 +49,7 @@ public class ImageMetadata {
     @Column
     private Long seed;
 
-    @Column
+    @Column(length = 64)
     private String scheduler;
 
     @Column(name = "clip_skip")

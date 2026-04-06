@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
@@ -26,7 +27,12 @@ import java.time.Instant;
 @EqualsAndHashCode(of = "id")
 @ToString(exclude = "job")
 @Entity
-@Table(name = "images")
+@Table(
+        name = "images",
+        indexes = {
+                @Index(name = "ix_images_user_id_created_at", columnList = "user_id,created_at")
+        }
+)
 public class Image {
 
     @Id
@@ -43,10 +49,10 @@ public class Image {
     @Column(columnDefinition = "TEXT")
     private String prompt;
 
-    @Column(name = "file_path", nullable = false)
+    @Column(name = "file_path", nullable = false, length = 512)
     private String filePath;
 
-    @Column(name = "mime_type")
+    @Column(name = "mime_type", length = 64)
     private String mimeType;
 
     @Column(name = "file_size_bytes")

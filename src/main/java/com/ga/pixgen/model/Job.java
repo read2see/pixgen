@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -27,7 +28,13 @@ import java.time.Instant;
 @EqualsAndHashCode(of = "id")
 @ToString
 @Entity
-@Table(name = "jobs")
+@Table(
+        name = "jobs",
+        indexes = {
+                @Index(name = "ix_jobs_status_created_at", columnList = "status,created_at"),
+                @Index(name = "ix_jobs_user_id_status", columnList = "user_id,status")
+        }
+)
 public class Job {
 
     @Id
@@ -62,22 +69,22 @@ public class Job {
     @Column
     private Long seed;
 
-    @Column
+    @Column(length = 64)
     private String sampler;
 
-    @Column(name = "model_name")
+    @Column(name = "model_name", length = 128)
     private String modelName;
 
-    @Column(name = "credits_cost")
+    @Column(name = "credits_cost", nullable = false)
     private Integer creditsCost;
 
-    @Column
+    @Column(nullable = false)
     private Integer progress;
 
-    @Column(name = "cancel_requested")
+    @Column(name = "cancel_requested", nullable = false)
     private boolean cancelRequested;
 
-    @Column(name = "claimed_by_instance")
+    @Column(name = "claimed_by_instance", length = 64)
     private String claimedByInstance;
 
     @Column(name = "claimed_at")
@@ -93,7 +100,7 @@ public class Job {
     private String errorMessage;
 
     @Version
-    @Column
+    @Column(nullable = false)
     private Long version;
 
     @Column(name = "created_at", nullable = false, updatable = false)
