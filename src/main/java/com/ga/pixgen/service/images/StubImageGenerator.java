@@ -1,6 +1,7 @@
 package com.ga.pixgen.service.images;
 
 import com.ga.pixgen.config.JobsProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -43,6 +44,7 @@ public class StubImageGenerator implements ImageGenerator {
     private final LocalImageStorage storage;
     private final Random random;
 
+    @Autowired
     public StubImageGenerator(JobsProperties properties, LocalImageStorage storage) {
         this(properties, storage, new Random());
     }
