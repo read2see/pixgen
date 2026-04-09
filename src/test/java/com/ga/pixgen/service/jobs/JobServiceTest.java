@@ -2,6 +2,7 @@ package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
 import com.ga.pixgen.exception.InsufficientCreditsException;
+import com.ga.pixgen.exception.JobNotCancellableException;
 import com.ga.pixgen.exception.JobNotFoundException;
 import com.ga.pixgen.exception.PendingJobLimitException;
 import com.ga.pixgen.model.Job;
@@ -231,6 +232,110 @@ class JobServiceTest {
 
         assertThat(jobs).containsExactly(pending);
         verify(jobRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    void cancel_pending_runsConditionalUpdate_andDoesNotTouchRegistry() {
+        Job pending = newJob(50L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(50L)).thenReturn(Optional.of(pending));
+        when(jobRepository.markCancelledIfPending(50L)).thenReturn(1);
+
+        jobService.cancel(50L, user);
+
+        verify(jobRepository).markCancelledIfPending(50L);
+        verify(activeJobRegistry, never()).requestCancel(any());
+        verify(jobRepository, never()).markCancelRequestedIfRunning(any());
+    }
+
+    @Test
+    void cancel_pending_throwsNotCancellable_whenConditionalUpdateRacedToZeroRows() {
+        Job pending = newJob(50L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(50L)).thenReturn(Optional.of(pending));
+        when(jobRepository.markCancelledIfPending(50L)).thenReturn(0);
+
+        assertThatThrownBy(() -> jobService.cancel(50L, user))
+                .isInstanceOf(JobNotCancellableException.class);
+    }
+
+    @Test
+    void cancel_running_onThisInstance_routesThroughRegistryWithoutDbFlag() {
+        Job running = newJob(60L, 7L, JobStatus.RUNNING);
+        when(jobRepository.findById(60L)).thenReturn(Optional.of(running));
+        when(activeJobRegistry.requestCancel(60L)).thenReturn(true);
+
+        jobService.cancel(60L, user);
+
+        verify(activeJobRegistry).requestCancel(60L);
+        verify(jobRepository, never()).markCancelRequestedIfRunning(any());
+        verify(jobRepository, never()).markCancelledIfPending(any());
+    }
+
+    @Test
+    void cancel_running_onAnotherInstance_setsDbCancelRequestedFlag() {
+        Job running = newJob(70L, 7L, JobStatus.RUNNING);
+        when(jobRepository.findById(70L)).thenReturn(Optional.of(running));
+        when(activeJobRegistry.requestCancel(70L)).thenReturn(false);
+
+        jobService.cancel(70L, user);
+
+        verify(activeJobRegistry).requestCancel(70L);
+        verify(jobRepository).markCancelRequestedIfRunning(70L);
+    }
+
+    @Test
+    void cancel_throwsJobNotFound_whenMissing() {
+        when(jobRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> jobService.cancel(404L, user))
+                .isInstanceOf(JobNotFoundException.class);
+    }
+
+    @Test
+    void cancel_throwsAccessDenied_whenActorIsNeitherOwnerNorPrivileged() {
+        User other = new User();
+        other.setId(8L);
+        Role userRole = new Role();
+        userRole.setName("USER");
+        other.setRole(userRole);
+        Job pending = newJob(80L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(80L)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> jobService.cancel(80L, other))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(jobRepository, never()).markCancelledIfPending(any());
+        verify(activeJobRegistry, never()).requestCancel(any());
+    }
+
+    @Test
+    void cancel_throwsNotCancellable_whenJobAlreadyTerminal() {
+        for (JobStatus terminal : List.of(JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED)) {
+            Job job = newJob(90L, 7L, terminal);
+            when(jobRepository.findById(90L)).thenReturn(Optional.of(job));
+
+            assertThatThrownBy(() -> jobService.cancel(90L, user))
+                    .as("status=%s", terminal)
+                    .isInstanceOf(JobNotCancellableException.class);
+        }
+
+        verify(jobRepository, never()).markCancelledIfPending(any());
+        verify(activeJobRegistry, never()).requestCancel(any());
+    }
+
+    @Test
+    void cancel_admin_canCancelAnotherUsersPendingJob() {
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
+        User admin = new User();
+        admin.setId(1L);
+        admin.setRole(adminRole);
+        Job pending = newJob(91L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(91L)).thenReturn(Optional.of(pending));
+        when(jobRepository.markCancelledIfPending(91L)).thenReturn(1);
+
+        jobService.cancel(91L, admin);
+
+        verify(jobRepository).markCancelledIfPending(91L);
     }
 
     private static Job newJob(long id, long userId, JobStatus status) {
