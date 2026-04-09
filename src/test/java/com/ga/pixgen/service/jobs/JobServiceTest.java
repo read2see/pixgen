@@ -2,6 +2,7 @@ package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
 import com.ga.pixgen.exception.InsufficientCreditsException;
+import com.ga.pixgen.exception.JobNotFoundException;
 import com.ga.pixgen.exception.PendingJobLimitException;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
@@ -15,6 +16,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -140,5 +145,99 @@ class JobServiceTest {
                 .isInstanceOf(InsufficientCreditsException.class);
 
         verify(jobRepository, never()).save(any(Job.class));
+    }
+
+    @Test
+    void get_returnsJob_whenActorIsOwner() {
+        Job job = newJob(99L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(99L)).thenReturn(Optional.of(job));
+
+        Job result = jobService.get(99L, user);
+
+        assertThat(result).isSameAs(job);
+    }
+
+    @Test
+    void get_returnsJob_whenActorIsAdmin() {
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
+        User admin = new User();
+        admin.setId(1L);
+        admin.setRole(adminRole);
+        Job job = newJob(99L, 999L, JobStatus.RUNNING);
+        when(jobRepository.findById(99L)).thenReturn(Optional.of(job));
+
+        Job result = jobService.get(99L, admin);
+
+        assertThat(result).isSameAs(job);
+    }
+
+    @Test
+    void get_returnsJob_whenActorIsModerator() {
+        Role moderatorRole = new Role();
+        moderatorRole.setName("MODERATOR");
+        User moderator = new User();
+        moderator.setId(2L);
+        moderator.setRole(moderatorRole);
+        Job job = newJob(99L, 999L, JobStatus.RUNNING);
+        when(jobRepository.findById(99L)).thenReturn(Optional.of(job));
+
+        Job result = jobService.get(99L, moderator);
+
+        assertThat(result).isSameAs(job);
+    }
+
+    @Test
+    void get_throwsAccessDenied_whenActorIsNeitherOwnerNorPrivileged() {
+        User other = new User();
+        other.setId(8L);
+        Role otherRole = new Role();
+        otherRole.setName("USER");
+        other.setRole(otherRole);
+        Job job = newJob(99L, 7L, JobStatus.PENDING);
+        when(jobRepository.findById(99L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> jobService.get(99L, other))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void get_throwsJobNotFound_whenMissing() {
+        when(jobRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> jobService.get(404L, user))
+                .isInstanceOf(JobNotFoundException.class);
+    }
+
+    @Test
+    void listMine_returnsJobsForUser_inMostRecentFirstOrder() {
+        Job j1 = newJob(1L, 7L, JobStatus.SUCCEEDED);
+        Job j2 = newJob(2L, 7L, JobStatus.PENDING);
+        when(jobRepository.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(j2, j1));
+
+        List<Job> jobs = jobService.listMine(user, null);
+
+        assertThat(jobs).containsExactly(j2, j1);
+        verify(jobRepository, never()).findByUserIdAndStatusOrderByCreatedAtDesc(any(), any());
+    }
+
+    @Test
+    void listMine_filtersByStatus_whenStatusProvided() {
+        Job pending = newJob(2L, 7L, JobStatus.PENDING);
+        when(jobRepository.findByUserIdAndStatusOrderByCreatedAtDesc(7L, JobStatus.PENDING))
+                .thenReturn(List.of(pending));
+
+        List<Job> jobs = jobService.listMine(user, JobStatus.PENDING);
+
+        assertThat(jobs).containsExactly(pending);
+        verify(jobRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
+    }
+
+    private static Job newJob(long id, long userId, JobStatus status) {
+        Job job = new Job();
+        job.setId(id);
+        job.setUserId(userId);
+        job.setStatus(status);
+        return job;
     }
 }
