@@ -37,4 +37,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                                 com.ga.pixgen.model.JobStatus.RUNNING)
             """)
     long countActiveByUser(@Param("userId") Long userId);
+
+    List<Job> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    List<Job> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, JobStatus status);
 }
