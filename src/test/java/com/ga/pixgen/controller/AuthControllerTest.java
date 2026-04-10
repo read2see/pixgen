@@ -11,6 +11,7 @@ import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
+import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
 import com.ga.pixgen.repository.UserRepository;
@@ -89,6 +90,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private EmailService emailService;
+
+    @MockitoBean
+    private JobRepository jobRepository;
 
     @Test
     void register_createsUser_andReturns201_withUserResponse() throws Exception {

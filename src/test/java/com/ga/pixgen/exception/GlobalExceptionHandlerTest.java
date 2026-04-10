@@ -1,6 +1,8 @@
 package com.ga.pixgen.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ga.pixgen.model.JobStatus;
+import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
 import com.ga.pixgen.repository.TokenRepository;
@@ -79,6 +81,9 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private PasswordResetService passwordResetService;
+
+    @MockitoBean
+    private JobRepository jobRepository;
 
     @Test
     @WithMockUser
@@ -172,6 +177,46 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @WithMockUser
+    void jobNotFound_returns404() throws Exception {
+        mockMvc.perform(get("/test-errors/job-not-found"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message").value("Job with id 7 not found"));
+    }
+
+    @Test
+    @WithMockUser
+    void jobNotCancellable_returns409() throws Exception {
+        mockMvc.perform(get("/test-errors/job-not-cancellable"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value("Job 7 cannot be cancelled in status SUCCEEDED"));
+    }
+
+    @Test
+    @WithMockUser
+    void pendingJobLimit_returns429() throws Exception {
+        mockMvc.perform(get("/test-errors/pending-limit"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.error").value("Too Many Requests"))
+                .andExpect(jsonPath("$.message").value("Pending job limit reached (max 10)"));
+    }
+
+    @Test
+    @WithMockUser
+    void insufficientCredits_returns402() throws Exception {
+        mockMvc.perform(get("/test-errors/insufficient-credits"))
+                .andExpect(status().isPaymentRequired())
+                .andExpect(jsonPath("$.status").value(402))
+                .andExpect(jsonPath("$.error").value("Payment Required"))
+                .andExpect(jsonPath("$.message").value("Insufficient credits: required 1 but only 0 available"));
+    }
+
+    @Test
+    @WithMockUser
     void unhandledException_returns500_withGenericMessage() throws Exception {
         mockMvc.perform(get("/test-errors/boom"))
                 .andExpect(status().isInternalServerError())
@@ -231,6 +276,26 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/expired-token")
         String expiredToken() {
             throw new ExpiredTokenException("Token has expired");
+        }
+
+        @GetMapping("/job-not-found")
+        String jobNotFound() {
+            throw new JobNotFoundException(7L);
+        }
+
+        @GetMapping("/job-not-cancellable")
+        String jobNotCancellable() {
+            throw new JobNotCancellableException(7L, JobStatus.SUCCEEDED);
+        }
+
+        @GetMapping("/pending-limit")
+        String pendingLimit() {
+            throw new PendingJobLimitException(10);
+        }
+
+        @GetMapping("/insufficient-credits")
+        String insufficientCredits() {
+            throw new InsufficientCreditsException(1, 0);
         }
 
         @GetMapping("/boom")

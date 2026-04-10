@@ -2,6 +2,7 @@ package com.ga.pixgen.config;
 
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
+import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
 import com.ga.pixgen.repository.TokenRepository;
@@ -63,6 +64,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private TokenRepository tokenRepository;
+
+    @MockitoBean
+    private JobRepository jobRepository;
 
     @MockitoBean
     private EmailVerificationService emailVerificationService;
