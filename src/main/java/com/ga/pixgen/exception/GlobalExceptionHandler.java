@@ -62,10 +62,29 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
-    @ExceptionHandler({ResourceNotFoundException.class, EntityNotFoundException.class})
+    @ExceptionHandler({ResourceNotFoundException.class, EntityNotFoundException.class,
+            JobNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex,
                                                         HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(JobNotCancellableException.class)
+    public ResponseEntity<ErrorResponse> handleJobNotCancellable(JobNotCancellableException ex,
+                                                                 HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PendingJobLimitException.class)
+    public ResponseEntity<ErrorResponse> handlePendingJobLimit(PendingJobLimitException ex,
+                                                               HttpServletRequest request) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InsufficientCreditsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientCredits(InsufficientCreditsException ex,
+                                                                   HttpServletRequest request) {
+        return build(HttpStatus.PAYMENT_REQUIRED, ex.getMessage(), request);
     }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
