@@ -2,6 +2,7 @@ package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
 import com.ga.pixgen.exception.InsufficientCreditsException;
+import com.ga.pixgen.exception.JobNotCancellableException;
 import com.ga.pixgen.exception.JobNotFoundException;
 import com.ga.pixgen.exception.PendingJobLimitException;
 import com.ga.pixgen.model.Job;
@@ -33,6 +34,10 @@ public class JobService {
      * on the matching permissions; the service-side check enforces
      * ownership end-to-end so misuse from non-HTTP entry points (tests,
      * future internal callers) cannot bypass it.
+     *
+     * @param "ADMIN" the "admin" value
+     * @param "MODERATOR" the "moderator" value
+     * @return the static final Set<String> PRIVILEGED_ROLES = result
      */
     static final Set<String> PRIVILEGED_ROLES = Set.of("ADMIN", "MODERATOR");
 
@@ -53,21 +58,17 @@ public class JobService {
      *
      * <p>Two pre-flight checks run before any row is written:
      * <ol>
-     * <li>The number of {@code PENDING} jobs the user already has must
-     * be strictly below {@code app.jobs.max-pending-jobs-per-user};
-     * otherwise {@link PendingJobLimitException} is raised.</li>
-     * <li>The user's credit balance must be at least
-     * {@code app.jobs.credits-per-image}; otherwise
-     * {@link InsufficientCreditsException} is raised.</li>
+     *     <li>The number of {@code PENDING} jobs the user already has must
+     *         be strictly below {@code app.jobs.max-pending-jobs-per-user};
+     *         otherwise {@link PendingJobLimitException} is raised.</li>
+     *     <li>The user's credit balance must be at least
+     *         {@code app.jobs.credits-per-image}; otherwise
+     *         {@link InsufficientCreditsException} is raised.</li>
      * </ol>
      * Credits are <em>not</em> deducted here — the worker's success path
      * performs the conditional {@code UPDATE users SET credits = credits - cost}
      * inside a per-user lock so concurrent jobs cannot drive a balance
      * negative.</p>
-     *
-     * @param user the user value
-     * @param submission the submission value
-     * @return the Job result
      */
     @Transactional
     public Job submit(User user, JobSubmission submission) {
@@ -104,9 +105,8 @@ public class JobService {
      * Look up a job by id, enforcing that {@code actor} either owns the
      * job or holds a {@linkplain #PRIVILEGED_ROLES privileged} role.
      *
-     * @param jobId the job id value
-     * @param actor the actor value
-     * @return the Job result
+     * @throws JobNotFoundException if no job with {@code jobId} exists
+     * @throws AccessDeniedException if {@code actor} is neither owner nor privileged
      */
     @Transactional(readOnly = true)
     public Job get(Long jobId, User actor) {
@@ -121,10 +121,6 @@ public class JobService {
     /**
      * List jobs owned by {@code actor}, optionally filtered by status,
      * ordered most-recent first.
-     *
-     * @param actor the actor value
-     * @param status the status value
-     * @return the matching rows, which may be empty
      */
     @Transactional(readOnly = true)
     public List<Job> listMine(User actor, JobStatus status) {
@@ -132,6 +128,55 @@ public class JobService {
             return jobRepository.findByUserIdOrderByCreatedAtDesc(actor.getId());
         }
         return jobRepository.findByUserIdAndStatusOrderByCreatedAtDesc(actor.getId(), status);
+    }
+
+    /**
+     * Cancel {@code jobId} on behalf of {@code actor}, dispatching to the
+     * right primitive depending on where the job currently lives:
+     *
+     * <ul>
+     *     <li>{@link JobStatus#PENDING}: a single conditional
+     *         {@code UPDATE … WHERE status='PENDING'}. If the row count
+     *         is {@code 0} the poller raced us and the job is no longer
+     *         cancellable from this path.</li>
+     *     <li>{@link JobStatus#RUNNING} on this JVM: route through
+     *         {@link ActiveJobRegistry#requestCancel(Long)} which flips
+     *         the volatile flag and interrupts the worker future.</li>
+     *     <li>{@link JobStatus#RUNNING} on another JVM: persist
+     *         {@code cancel_requested=true} in the database; the owning
+     *         instance's worker will observe the flag on its next
+     *         progress tick.</li>
+     *     <li>Any terminal state: {@link JobNotCancellableException}.</li>
+     * </ul>
+     *
+     * @throws JobNotFoundException if no job with {@code jobId} exists
+     * @throws AccessDeniedException if {@code actor} is neither owner nor privileged
+     * @throws JobNotCancellableException if the job is already terminal
+     *         or the conditional update lost the race against the poller
+     */
+    @Transactional
+    public void cancel(Long jobId, User actor) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+        if (!canAccess(actor, job)) {
+            throw new AccessDeniedException("Not allowed to cancel job " + jobId);
+        }
+        switch (job.getStatus()) {
+            case PENDING -> {
+                int updated = jobRepository.markCancelledIfPending(jobId);
+                if (updated == 0) {
+                    throw new JobNotCancellableException(jobId);
+                }
+            }
+            case RUNNING -> {
+                boolean handledLocally = activeJobRegistry.requestCancel(jobId);
+                if (!handledLocally) {
+                    jobRepository.markCancelRequestedIfRunning(jobId);
+                }
+            }
+            case SUCCEEDED, FAILED, CANCELLED ->
+                    throw new JobNotCancellableException(jobId, job.getStatus());
+        }
     }
 
     private static boolean canAccess(User actor, Job job) {
