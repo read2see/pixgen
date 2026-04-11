@@ -8,6 +8,7 @@ import com.ga.pixgen.service.images.GenerationRequest;
 import com.ga.pixgen.service.images.ImageGenerator;
 import com.ga.pixgen.service.images.LocalImageStorage;
 import com.ga.pixgen.service.images.StoredImage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,14 +16,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.IntConsumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -86,6 +89,13 @@ class JobWorkerTest {
                 registry,
                 locks,
                 broker);
+    }
+
+    @AfterEach
+    void tearDown() {
+        // The worker re-asserts the interrupt flag in its cancellation path;
+        // clear it so subsequent tests start with a clean thread state.
+        Thread.interrupted();
     }
 
     @Test
@@ -192,6 +202,178 @@ class JobWorkerTest {
         worker.execute(job);
 
         verify(storage, never()).delete(any());
+    }
+
+    @Test
+    void execute_marksCancelledAndDoesNotPersistImage_whenGeneratorThrowsInterrupted() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenAnswer(invocation -> { throw new InterruptedException("user cancel"); });
+
+        worker.execute(job);
+
+        verify(jobRepository).markCancelled(101L);
+        verify(jobRepository, never()).markSucceeded(anyLong());
+        verify(jobRepository, never()).markFailed(anyLong(), any());
+        verify(completionService, never()).completeSuccess(any(), any());
+        verify(storage, never()).delete(any());
+        // The interrupt flag must be re-asserted so the executor sees it.
+        assertThat(Thread.interrupted()).isTrue();
+    }
+
+    @Test
+    void execute_publishesCancelledStatusEvent_whenInterrupted() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenAnswer(invocation -> { throw new InterruptedException("cancel"); });
+
+        worker.execute(job);
+
+        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
+        verify(broker).publish(captor.capture());
+        JobEventDto event = captor.getValue();
+        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
+        assertThat(event.status()).isEqualTo(JobStatus.CANCELLED);
+        assertThat(event.jobId()).isEqualTo(101L);
+        assertThat(event.userId()).isEqualTo(7L);
+    }
+
+    @Test
+    void execute_marksFailed_whenGeneratorThrowsRuntimeException() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenThrow(new RuntimeException("model exploded"));
+
+        worker.execute(job);
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jobRepository).markFailed(eq(101L), messageCaptor.capture());
+        assertThat(messageCaptor.getValue()).contains("model exploded");
+        verify(jobRepository, never()).markSucceeded(anyLong());
+        verify(jobRepository, never()).markCancelled(anyLong());
+        // Generator threw before producing a stored image — nothing to delete.
+        verify(storage, never()).delete(any());
+    }
+
+    @Test
+    void execute_publishesFailedStatusEvent_onRuntimeException() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenThrow(new RuntimeException("disk full"));
+
+        worker.execute(job);
+
+        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
+        verify(broker).publish(captor.capture());
+        JobEventDto event = captor.getValue();
+        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
+        assertThat(event.status()).isEqualTo(JobStatus.FAILED);
+        assertThat(event.message()).contains("disk full");
+    }
+
+    @Test
+    void execute_marksFailedAndDeletesFile_whenInsufficientCredits() throws Exception {
+        Job job = sampleJob();
+        StoredImage stored = new StoredImage("7/orphan.png", 1L, 64, 32, "image/png");
+        when(generator.generate(any(GenerationRequest.class), any())).thenReturn(stored);
+        when(completionService.completeSuccess(any(Job.class), any(StoredImage.class))).thenReturn(false);
+
+        worker.execute(job);
+
+        verify(jobRepository).markFailed(eq(101L), contains("INSUFFICIENT_CREDITS"));
+        verify(jobRepository, never()).markSucceeded(anyLong());
+        verify(storage).delete("7/orphan.png");
+    }
+
+    @Test
+    void execute_publishesFailedStatus_whenInsufficientCredits() throws Exception {
+        Job job = sampleJob();
+        StoredImage stored = new StoredImage("7/orphan.png", 1L, 64, 32, "image/png");
+        when(generator.generate(any(GenerationRequest.class), any())).thenReturn(stored);
+        when(completionService.completeSuccess(any(Job.class), any(StoredImage.class))).thenReturn(false);
+
+        worker.execute(job);
+
+        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
+        verify(broker).publish(captor.capture());
+        JobEventDto event = captor.getValue();
+        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
+        assertThat(event.status()).isEqualTo(JobStatus.FAILED);
+        assertThat(event.message()).contains("INSUFFICIENT_CREDITS");
+    }
+
+    @Test
+    void execute_releasesRegistrySlot_evenWhenGeneratorThrows() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenThrow(new RuntimeException("boom"));
+
+        worker.execute(job);
+
+        verify(registry).release(101L);
+    }
+
+    @Test
+    void execute_releasesRegistrySlot_evenWhenGeneratorIsCancelled() throws Exception {
+        Job job = sampleJob();
+        when(generator.generate(any(GenerationRequest.class), any()))
+                .thenAnswer(invocation -> { throw new InterruptedException(); });
+
+        worker.execute(job);
+
+        verify(registry).release(101L);
+    }
+
+    @Test
+    void execute_observesDbCancelFlagBetweenProgressTicks_andTransitionsToCancelled() throws Exception {
+        Job job = sampleJob();
+        when(jobRepository.findCancelRequested(101L))
+                .thenReturn(Optional.of(false))
+                .thenReturn(Optional.of(true));
+        when(generator.generate(any(GenerationRequest.class), any())).thenAnswer(invocation -> {
+            IntConsumer listener = invocation.getArgument(1);
+            listener.accept(25);
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("cancel observed");
+            }
+            listener.accept(50);
+            // Simulates the generator picking up the interrupt at its next sleep boundary.
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("cancel observed");
+            }
+            return new StoredImage("7/should-not-happen.png", 1L, 64, 32, "image/png");
+        });
+
+        worker.execute(job);
+
+        verify(jobRepository, times(2)).findCancelRequested(101L);
+        verify(jobRepository).markCancelled(101L);
+        verify(jobRepository, never()).markSucceeded(anyLong());
+        // Progress was published only for the first, pre-cancel tick.
+        verify(jobRepository).updateProgress(101L, 25);
+        verify(jobRepository, never()).updateProgress(eq(101L), eq(50));
+    }
+
+    @Test
+    void execute_observesHandleCancelFlagBetweenProgressTicks_andTransitionsToCancelled() throws Exception {
+        Job job = sampleJob();
+        ActiveJobHandle cancelledHandle = new ActiveJobHandle(101L, 7L, Instant.now());
+        cancelledHandle.markCancelRequested();
+        when(registry.get(101L)).thenReturn(Optional.of(cancelledHandle));
+        when(generator.generate(any(GenerationRequest.class), any())).thenAnswer(invocation -> {
+            IntConsumer listener = invocation.getArgument(1);
+            listener.accept(40);
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("cancel via handle");
+            }
+            return new StoredImage("7/should-not-happen.png", 1L, 64, 32, "image/png");
+        });
+
+        worker.execute(job);
+
+        verify(jobRepository).markCancelled(101L);
+        verify(jobRepository, never()).markSucceeded(anyLong());
+        verify(jobRepository, never()).updateProgress(eq(101L), eq(40));
     }
 
     private static Job sampleJob() {
