@@ -1,6 +1,5 @@
 package com.ga.pixgen.service.jobs;
 
-import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
@@ -24,6 +23,7 @@ import java.util.function.IntConsumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -136,13 +136,11 @@ class JobWorkerTest {
 
         worker.execute(job);
 
-        ArgumentCaptor<JobEventDto> eventCaptor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker, times(progressFired.size() + 1)).publish(eventCaptor.capture());
-        List<Integer> publishedProgress = eventCaptor.getAllValues().stream()
-                .filter(e -> JobEventDto.TYPE_PROGRESS.equals(e.type()))
-                .map(JobEventDto::progress)
-                .toList();
-        assertThat(publishedProgress).containsExactly(0, 25, 50, 75, 100);
+        ArgumentCaptor<Integer> percentCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(broker, times(progressFired.size()))
+                .publishProgress(eq(101L), eq(7L), percentCaptor.capture());
+        assertThat(percentCaptor.getAllValues()).containsExactly(0, 25, 50, 75, 100);
+        verify(broker).publishStatus(101L, 7L, JobStatus.SUCCEEDED, null);
         verify(jobRepository).updateProgress(101L, 0);
         verify(jobRepository).updateProgress(101L, 25);
         verify(jobRepository).updateProgress(101L, 50);
@@ -171,13 +169,8 @@ class JobWorkerTest {
 
         worker.execute(job);
 
-        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker, times(1)).publish(captor.capture());
-        JobEventDto event = captor.getValue();
-        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
-        assertThat(event.status()).isEqualTo(JobStatus.SUCCEEDED);
-        assertThat(event.jobId()).isEqualTo(101L);
-        assertThat(event.userId()).isEqualTo(7L);
+        verify(broker, times(1)).publishStatus(101L, 7L, JobStatus.SUCCEEDED, null);
+        verify(broker, never()).publishProgress(anyLong(), anyLong(), anyInt());
     }
 
     @Test
@@ -229,13 +222,7 @@ class JobWorkerTest {
 
         worker.execute(job);
 
-        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker).publish(captor.capture());
-        JobEventDto event = captor.getValue();
-        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
-        assertThat(event.status()).isEqualTo(JobStatus.CANCELLED);
-        assertThat(event.jobId()).isEqualTo(101L);
-        assertThat(event.userId()).isEqualTo(7L);
+        verify(broker).publishStatus(101L, 7L, JobStatus.CANCELLED, null);
     }
 
     @Test
@@ -263,12 +250,9 @@ class JobWorkerTest {
 
         worker.execute(job);
 
-        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker).publish(captor.capture());
-        JobEventDto event = captor.getValue();
-        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
-        assertThat(event.status()).isEqualTo(JobStatus.FAILED);
-        assertThat(event.message()).contains("disk full");
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(broker).publishStatus(eq(101L), eq(7L), eq(JobStatus.FAILED), messageCaptor.capture());
+        assertThat(messageCaptor.getValue()).contains("disk full");
     }
 
     @Test
@@ -294,12 +278,9 @@ class JobWorkerTest {
 
         worker.execute(job);
 
-        ArgumentCaptor<JobEventDto> captor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker).publish(captor.capture());
-        JobEventDto event = captor.getValue();
-        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
-        assertThat(event.status()).isEqualTo(JobStatus.FAILED);
-        assertThat(event.message()).contains("INSUFFICIENT_CREDITS");
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(broker).publishStatus(eq(101L), eq(7L), eq(JobStatus.FAILED), messageCaptor.capture());
+        assertThat(messageCaptor.getValue()).contains("INSUFFICIENT_CREDITS");
     }
 
     @Test

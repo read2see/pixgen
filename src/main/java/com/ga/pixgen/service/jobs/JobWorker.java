@@ -1,6 +1,5 @@
 package com.ga.pixgen.service.jobs;
 
-import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
@@ -89,7 +88,7 @@ public class JobWorker {
         try {
             stored = generator.generate(buildRequest(job), buildProgressListener(jobId, userId));
             if (finalizeSuccess(job, stored)) {
-                publish(JobEventDto.status(jobId, userId, JobStatus.SUCCEEDED));
+                publishStatus(jobId, userId, JobStatus.SUCCEEDED, null);
             } else {
                 handleInsufficientCredits(jobId, userId, stored);
             }
@@ -123,7 +122,7 @@ public class JobWorker {
                 return;
             }
             jobRepository.updateProgress(jobId, percent);
-            publish(JobEventDto.progress(jobId, userId, percent));
+            publishProgress(jobId, userId, percent);
         };
     }
 
@@ -150,20 +149,20 @@ public class JobWorker {
     private void handleInsufficientCredits(Long jobId, Long userId, StoredImage stored) {
         safelyDelete(stored);
         jobRepository.markFailed(jobId, INSUFFICIENT_CREDITS_REASON);
-        publish(JobEventDto.status(jobId, userId, JobStatus.FAILED, INSUFFICIENT_CREDITS_REASON));
+        publishStatus(jobId, userId, JobStatus.FAILED, INSUFFICIENT_CREDITS_REASON);
     }
 
     private void handleCancelled(Long jobId, Long userId, StoredImage stored) {
         safelyDelete(stored);
         jobRepository.markCancelled(jobId);
-        publish(JobEventDto.status(jobId, userId, JobStatus.CANCELLED));
+        publishStatus(jobId, userId, JobStatus.CANCELLED, null);
     }
 
     private void handleFailure(Long jobId, Long userId, StoredImage stored, RuntimeException cause) {
         safelyDelete(stored);
         String message = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
         jobRepository.markFailed(jobId, message);
-        publish(JobEventDto.status(jobId, userId, JobStatus.FAILED, message));
+        publishStatus(jobId, userId, JobStatus.FAILED, message);
     }
 
     private void safelyDelete(StoredImage stored) {
@@ -178,9 +177,19 @@ public class JobWorker {
         }
     }
 
-    private void publish(JobEventDto event) {
+    private void publishProgress(Long jobId, Long userId, int percent) {
         try {
-            broker.publish(event);
+            broker.publishProgress(jobId, userId, percent);
+        } catch (RuntimeException ignored) {
+            // The broker is in-process and lock-free, but we still refuse
+            // to let an SSE plumbing failure swallow the worker's
+            // progress tick.
+        }
+    }
+
+    private void publishStatus(Long jobId, Long userId, JobStatus status, String message) {
+        try {
+            broker.publishStatus(jobId, userId, status, message);
         } catch (RuntimeException ignored) {
             // The broker is in-process and lock-free, but we still refuse
             // to let an SSE plumbing failure swallow the worker's

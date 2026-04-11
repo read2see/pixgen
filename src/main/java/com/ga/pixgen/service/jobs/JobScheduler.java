@@ -1,7 +1,6 @@
 package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
-import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
@@ -111,7 +110,7 @@ public class JobScheduler {
             job.setStartedAt(now);
             jobRepository.save(job);
 
-            broker.publish(JobEventDto.status(job.getId(), job.getUserId(), JobStatus.RUNNING));
+            broker.publishStatus(job.getId(), job.getUserId(), JobStatus.RUNNING);
 
             Future<?> future = executor.submit(() -> worker.execute(job));
             registry.attachFuture(job.getId(), future);

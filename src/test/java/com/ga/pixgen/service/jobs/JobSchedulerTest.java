@@ -1,7 +1,6 @@
 package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
-import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
@@ -133,7 +132,7 @@ class JobSchedulerTest {
 
         verify(jobRepository, never()).save(any());
         verifyNoInteractions(executor);
-        verify(broker, never()).publish(any());
+        verifyNoInteractions(broker);
         verify(registry, never()).attachFuture(any(), any());
     }
 
@@ -157,13 +156,7 @@ class JobSchedulerTest {
         assertThat(saved.getClaimedAt()).isNotNull();
         assertThat(saved.getStartedAt()).isNotNull();
 
-        ArgumentCaptor<JobEventDto> eventCaptor = ArgumentCaptor.forClass(JobEventDto.class);
-        verify(broker).publish(eventCaptor.capture());
-        JobEventDto event = eventCaptor.getValue();
-        assertThat(event.jobId()).isEqualTo(202L);
-        assertThat(event.userId()).isEqualTo(9L);
-        assertThat(event.status()).isEqualTo(JobStatus.RUNNING);
-        assertThat(event.type()).isEqualTo(JobEventDto.TYPE_STATUS);
+        verify(broker).publishStatus(202L, 9L, JobStatus.RUNNING);
 
         verify(executor, times(1)).submit(any(Runnable.class));
         verify(registry).attachFuture(eq(202L), eq(future));

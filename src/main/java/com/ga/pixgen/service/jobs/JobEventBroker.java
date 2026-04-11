@@ -1,6 +1,7 @@
 package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.dto.JobEventDto;
+import com.ga.pixgen.model.JobStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -137,6 +138,45 @@ public class JobEventBroker {
                 }
             }
         }
+    }
+
+    /**
+     * Build a progress event for {@code (jobId, userId)} and fan it out.
+     * Centralises construction so the worker (and any future producer of
+     * progress ticks) does not have to know the {@link JobEventDto} shape.
+     *
+     * @param jobId the job id value
+     * @param userId the user id value
+     * @param percent the percent value
+     */
+    public void publishProgress(Long jobId, Long userId, int percent) {
+        publish(JobEventDto.progress(jobId, userId, percent));
+    }
+
+    /**
+     * Build a status-transition event for {@code (jobId, userId)} and fan it
+     * out. The {@code message} is optional — used by failure transitions to
+     * carry the {@code INSUFFICIENT_CREDITS} reason or the generator's
+     * exception text.
+     *
+     * @param jobId the job id value
+     * @param userId the user id value
+     * @param status the status value
+     * @param message the message value
+     */
+    public void publishStatus(Long jobId, Long userId, JobStatus status, String message) {
+        publish(JobEventDto.status(jobId, userId, status, message));
+    }
+
+    /**
+     * Convenience overload for status events without a message payload.
+     *
+     * @param jobId the job id value
+     * @param userId the user id value
+     * @param status the status value
+     */
+    public void publishStatus(Long jobId, Long userId, JobStatus status) {
+        publishStatus(jobId, userId, status, null);
     }
 
     /**
