@@ -2,6 +2,8 @@ package com.ga.pixgen.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ga.pixgen.model.JobStatus;
+import com.ga.pixgen.repository.ImageMetadataRepository;
+import com.ga.pixgen.repository.ImageRepository;
 import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
 import com.ga.pixgen.repository.RoleRepository;
@@ -84,6 +86,12 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private JobRepository jobRepository;
+
+    @MockitoBean
+    private ImageRepository imageRepository;
+
+    @MockitoBean
+    private ImageMetadataRepository imageMetadataRepository;
 
     @Test
     @WithMockUser
