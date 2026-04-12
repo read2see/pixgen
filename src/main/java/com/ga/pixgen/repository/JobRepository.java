@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JobRepository extends JpaRepository<Job, Long> {
@@ -77,4 +78,92 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                AND j.status = com.ga.pixgen.model.JobStatus.RUNNING
             """)
     int markCancelRequestedIfRunning(@Param("id") Long jobId);
+
+    /**
+     * Update the {@code progress} column for a {@code RUNNING} job. The
+     * status guard avoids racing with a terminal transition: once the
+     * worker flips the row to {@code SUCCEEDED}/{@code FAILED}/{@code CANCELLED}
+     * a stale progress callback must not roll the percentage back.
+     *
+     * @param progress the progress value
+     * @return the int updateProgress(@Param("id") Long id, result
+     */
+    @Modifying
+    @Query("""
+            UPDATE Job j
+               SET j.progress = :progress
+             WHERE j.id = :id
+               AND j.status = com.ga.pixgen.model.JobStatus.RUNNING
+            """)
+    int updateProgress(@Param("id") Long id, @Param("progress") int progress);
+
+    /**
+     * Atomically flip a {@code RUNNING} job to {@code SUCCEEDED}, force
+     * progress to 100, and stamp the completion time. Native so the
+     * timestamp comes from the database clock and so we don't need to
+     * touch the {@code @Version} column on the cached entity.
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE jobs
+               SET status = 'SUCCEEDED',
+                   progress = 100,
+                   completed_at = NOW(),
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE id = :id
+               AND status = 'RUNNING'
+            """, nativeQuery = true)
+    int markSucceeded(@Param("id") Long id);
+
+    /**
+     * Atomically transition a job to {@code FAILED} from any non-terminal
+     * state, persisting the supplied error message.
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE jobs
+               SET status = 'FAILED',
+                   error_message = :message,
+                   completed_at = NOW(),
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE id = :id
+               AND status IN ('PENDING', 'RUNNING')
+            """, nativeQuery = true)
+    int markFailed(@Param("id") Long id, @Param("message") String message);
+
+    /**
+     * Atomically transition a job to {@code CANCELLED} from any
+     * non-terminal state. Used by the worker when it observes
+     * {@link Thread#isInterrupted()} or the {@code cancel_requested}
+     * flag set by another instance.
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE jobs
+               SET status = 'CANCELLED',
+                   completed_at = NOW(),
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE id = :id
+               AND status IN ('PENDING', 'RUNNING')
+            """, nativeQuery = true)
+    int markCancelled(@Param("id") Long id);
+
+    /**
+     * Read just the {@code cancel_requested} flag without dragging the
+     * full row through Hibernate's first-level cache. The worker polls
+     * this between progress ticks so a cross-instance cancel is honoured
+     * without an SSE round-trip.
+     *
+     * @param id the id value
+     * @return the matching rows, which may be empty
+     */
+    @Query("""
+            SELECT j.cancelRequested
+              FROM Job j
+             WHERE j.id = :id
+            """)
+    Optional<Boolean> findCancelRequested(@Param("id") Long id);
 }
