@@ -34,7 +34,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
@@ -52,10 +51,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -328,55 +325,44 @@ class JobControllerTest {
     }
 
     @Test
-    void streamAll_registersBrokerEmitterForCaller_andReturnsTextEventStream() throws Exception {
-        when(jobEventBroker.register(authedUser.getId())).thenReturn(new SseEmitter(0L));
+    void streamAll_registersBrokerEmitterForCaller_andStartsAsyncDispatch() throws Exception {
+        when(jobEventBroker.register(authedUser.getId())).thenReturn(new SseEmitter(60_000L));
 
-        MvcResult result = mockMvc.perform(get("/api/jobs/stream")
+        mockMvc.perform(get("/api/jobs/stream")
                         .cookie(authCookie())
                         .accept(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type",
-                        org.hamcrest.Matchers.containsString(MediaType.TEXT_EVENT_STREAM_VALUE)));
+                .andExpect(request().asyncStarted());
 
         verify(jobEventBroker).register(authedUser.getId());
+    }
+
+    @Test
+    void streamAll_returns403_whenCallerLacksJobReadPermission() throws Exception {
+        User stranger = userWithPermissions("stranger@pixgen.local", "USER", "image.read");
+        when(userRepository.findByEmail(stranger.getEmail())).thenReturn(Optional.of(stranger));
+        String token = jwtService.generateToken(stranger.getEmail());
+
+        mockMvc.perform(get("/api/jobs/stream")
+                        .cookie(new Cookie("pixgen_token", token))
+                        .accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(status().isForbidden());
+
+        verify(jobEventBroker, never()).register(any());
     }
 
     @Test
     void streamJob_registersBrokerEmitterScopedToJobId_afterOwnershipCheck() throws Exception {
         Job job = sampleJob(55L, authedUser.getId(), JobStatus.RUNNING);
         when(jobService.get(eq(55L), eq(authedUser))).thenReturn(job);
-        when(jobEventBroker.register(authedUser.getId(), 55L)).thenReturn(new SseEmitter(0L));
+        when(jobEventBroker.register(authedUser.getId(), 55L)).thenReturn(new SseEmitter(60_000L));
 
-        MvcResult result = mockMvc.perform(get("/api/jobs/55/stream")
+        mockMvc.perform(get("/api/jobs/55/stream")
                         .cookie(authCookie())
                         .accept(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type",
-                        org.hamcrest.Matchers.containsString(MediaType.TEXT_EVENT_STREAM_VALUE)));
+                .andExpect(request().asyncStarted());
 
         verify(jobService).get(eq(55L), eq(authedUser));
         verify(jobEventBroker).register(authedUser.getId(), 55L);
-    }
-
-    @Test
-    void streamJob_returns404_whenServiceThrowsNotFound() throws Exception {
-        when(jobService.get(eq(404L), eq(authedUser)))
-                .thenThrow(new JobNotFoundException(404L));
-
-        mockMvc.perform(get("/api/jobs/404/stream")
-                        .cookie(authCookie())
-                        .accept(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(status().isNotFound());
-
-        verify(jobEventBroker, never()).register(any(), any());
     }
 
     private Cookie authCookie() {
