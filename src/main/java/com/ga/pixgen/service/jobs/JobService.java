@@ -179,6 +179,21 @@ public class JobService {
         }
     }
 
+    /**
+     * Return the 1-indexed position of {@code job} in the global pending
+     * queue, or {@code null} if the job is not currently {@link JobStatus#PENDING}.
+     * The query relies on monotonic job ids so the count of pending rows
+     * with {@code id <= job.getId()} is the job's place in line.
+     */
+    @Transactional(readOnly = true)
+    public Integer queuePosition(Job job) {
+        if (job == null || job.getStatus() != JobStatus.PENDING || job.getId() == null) {
+            return null;
+        }
+        long position = jobRepository.countPendingNotAfter(job.getId());
+        return position <= 0 ? null : (int) position;
+    }
+
     private static boolean canAccess(User actor, Job job) {
         if (actor == null) {
             return false;

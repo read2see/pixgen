@@ -166,4 +166,21 @@ public interface JobRepository extends JpaRepository<Job, Long> {
              WHERE j.id = :id
             """)
     Optional<Boolean> findCancelRequested(@Param("id") Long id);
+
+    /**
+     * Count the number of {@code PENDING} jobs whose id is less than or equal
+     * to {@code id}. Job ids are monotonic so the result is the 1-indexed
+     * position of {@code id} in the global pending queue. Returns {@code 0}
+     * when {@code id} is not (or no longer) pending.
+     *
+     * @param id the id value
+     * @return the long result
+     */
+    @Query("""
+            SELECT COUNT(j)
+              FROM Job j
+             WHERE j.status = com.ga.pixgen.model.JobStatus.PENDING
+               AND j.id <= :id
+            """)
+    long countPendingNotAfter(@Param("id") Long id);
 }
