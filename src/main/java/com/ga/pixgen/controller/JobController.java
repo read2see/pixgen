@@ -74,15 +74,18 @@ public class JobController {
     }
 
     /**
-     * Cancel a job. The endpoint is only protected by {@code authenticated()}
-     * for now; branch 9 will tighten this to {@code @PreAuthorize("hasAuthority('job.cancel')")}
-     * once the permission and seeder wiring lands. Ownership and state
-     * transitions are still enforced by the service.
+     * Cancel a job. Authorisation is gated by the {@code job.cancel}
+     * permission, which is wired onto the ADMIN, MODERATOR and USER roles
+     * by {@link com.ga.pixgen.config.seed.RolePermissionSeeder}. Ownership
+     * and state-transition rules are still enforced by the service so a
+     * permitted caller cannot cancel another user's job (moderators are
+     * the only role allowed to cross that boundary).
      *
      * @param id the id value
      * @param principal the principal value
      */
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAuthority('job.cancel')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancel(@PathVariable Long id,
                        @AuthenticationPrincipal CustomUserDetails principal) {

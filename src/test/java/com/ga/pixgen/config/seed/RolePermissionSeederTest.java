@@ -38,13 +38,13 @@ class RolePermissionSeederTest {
             "post.create", "post.read", "post.delete",
             "comment.create", "comment.delete",
             "role.manage", "permission.manage",
-            "job.create", "job.read", "credits.grant"
+            "job.create", "job.read", "job.cancel", "credits.grant"
     );
 
     private static final Set<String> EXPECTED_ADMIN = EXPECTED_PERMISSIONS;
 
     private static final Set<String> EXPECTED_MODERATOR = Set.of(
-            "user.read", "image.read", "post.read", "job.read",
+            "user.read", "image.read", "post.read", "job.read", "job.cancel",
             "post.delete", "comment.delete"
     );
 
@@ -52,7 +52,7 @@ class RolePermissionSeederTest {
             "image.create", "image.read",
             "post.create", "post.read",
             "comment.create",
-            "job.create", "job.read"
+            "job.create", "job.read", "job.cancel"
     );
 
     private static final Set<String> EXPECTED_SYSTEM = Set.of(
@@ -154,6 +154,16 @@ class RolePermissionSeederTest {
 
         assertThat(permissionNames(roleStore.get("SYSTEM")))
                 .containsExactlyInAnyOrderElementsOf(EXPECTED_SYSTEM);
+    }
+
+    @Test
+    void run_wiresJobCancel_onAdminModeratorAndUserRoles() throws Exception {
+        seeder.run();
+
+        assertThat(permissionNames(roleStore.get("ADMIN"))).contains("job.cancel");
+        assertThat(permissionNames(roleStore.get("MODERATOR"))).contains("job.cancel");
+        assertThat(permissionNames(roleStore.get("USER"))).contains("job.cancel");
+        assertThat(permissionNames(roleStore.get("SYSTEM"))).doesNotContain("job.cancel");
     }
 
     @Test
