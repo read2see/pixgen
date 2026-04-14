@@ -4,6 +4,9 @@ import com.ga.pixgen.config.JobsProperties;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -47,6 +50,8 @@ import java.util.concurrent.Semaphore;
 @Component
 public class JobScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(JobScheduler.class);
+
     private final JobRepository jobRepository;
     private final ActiveJobRegistry registry;
     private final ThreadPoolTaskExecutor executor;
@@ -69,6 +74,24 @@ public class JobScheduler {
         this.properties = properties;
         this.worker = worker;
         this.broker = broker;
+    }
+
+    /**
+     * Reclaim abandoned {@code RUNNING} rows that this instance left behind
+     * before its previous shutdown — typically because the JVM crashed
+     * mid-flight. Runs once at bean init: rows tagged with our
+     * {@link JobsProperties#getInstanceId() instanceId} are flipped back to
+     * {@code PENDING} so the next poll picks them up. Rows owned by a
+     * different live instance are deliberately left alone.
+     */
+    @PostConstruct
+    @Transactional
+    public void recoverAbandonedJobs() {
+        int requeued = jobRepository.requeueRunningOwnedBy(properties.getInstanceId());
+        if (requeued > 0) {
+            log.info("Requeued {} RUNNING jobs abandoned by instance {}",
+                    requeued, properties.getInstanceId());
+        }
     }
 
     /**
