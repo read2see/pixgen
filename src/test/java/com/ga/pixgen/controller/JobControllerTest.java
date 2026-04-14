@@ -131,7 +131,7 @@ class JobControllerTest {
 
     @BeforeEach
     void setUp() {
-        authedUser = userWithPermissions(EMAIL, "USER", "job.create", "job.read");
+        authedUser = userWithPermissions(EMAIL, "USER", "job.create", "job.read", "job.cancel");
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(authedUser));
         authCookieValue = jwtService.generateToken(EMAIL);
     }
@@ -322,6 +322,19 @@ class JobControllerTest {
         mockMvc.perform(post("/api/jobs/9/cancel")
                         .cookie(authCookie()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void cancelJob_returns403_whenCallerLacksJobCancelPermission() throws Exception {
+        User reader = userWithPermissions("reader@pixgen.local", "USER", "job.create", "job.read");
+        when(userRepository.findByEmail(reader.getEmail())).thenReturn(Optional.of(reader));
+        String token = jwtService.generateToken(reader.getEmail());
+
+        mockMvc.perform(post("/api/jobs/77/cancel")
+                        .cookie(new Cookie("pixgen_token", token)))
+                .andExpect(status().isForbidden());
+
+        verify(jobService, never()).cancel(any(), any());
     }
 
     @Test

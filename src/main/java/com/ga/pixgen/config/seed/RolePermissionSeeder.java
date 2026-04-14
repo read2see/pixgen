@@ -32,13 +32,13 @@ public class RolePermissionSeeder implements CommandLineRunner, Ordered {
             "post.create", "post.read", "post.delete",
             "comment.create", "comment.delete",
             "role.manage", "permission.manage",
-            "job.create", "job.read", "credits.grant"
+            "job.create", "job.read", "job.cancel", "credits.grant"
     ));
 
     static final Set<String> ADMIN_PERMISSIONS = ALL_PERMISSIONS;
 
     static final Set<String> MODERATOR_PERMISSIONS = Set.of(
-            "user.read", "image.read", "post.read", "job.read",
+            "user.read", "image.read", "post.read", "job.read", "job.cancel",
             "post.delete", "comment.delete"
     );
 
@@ -46,7 +46,7 @@ public class RolePermissionSeeder implements CommandLineRunner, Ordered {
             "image.create", "image.read",
             "post.create", "post.read",
             "comment.create",
-            "job.create", "job.read"
+            "job.create", "job.read", "job.cancel"
     );
 
     static final Set<String> SYSTEM_PERMISSIONS = Set.of(
