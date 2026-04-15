@@ -49,6 +49,9 @@ public class Image {
     @Column(columnDefinition = "TEXT")
     private String prompt;
 
+    @Column(name = "negative_prompt", columnDefinition = "TEXT")
+    private String negativePrompt;
+
     @Column(name = "file_path", nullable = false, length = 512)
     private String filePath;
 
@@ -63,6 +66,33 @@ public class Image {
 
     @Column
     private Integer height;
+
+    @Column(name = "model_id", length = 256)
+    private String modelId;
+
+    @Column(length = 64)
+    private String sampler;
+
+    @Column(name = "num_inference_steps")
+    private Integer numInferenceSteps;
+
+    @Column(name = "guidance_scale")
+    private Double guidanceScale;
+
+    @Column
+    private Long seed;
+
+    @Column(length = 64)
+    private String scheduler;
+
+    @Column(name = "clip_skip")
+    private Integer clipSkip;
+
+    @Column(name = "loras_json", columnDefinition = "TEXT")
+    private String lorasJson;
+
+    @Column(name = "extras_json", columnDefinition = "TEXT")
+    private String extrasJson;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

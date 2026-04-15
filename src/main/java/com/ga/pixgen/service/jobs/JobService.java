@@ -10,6 +10,7 @@ import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.JobRepository;
+import com.ga.pixgen.service.generation.GenerationModelCatalog;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,19 +45,22 @@ public class JobService {
     private final JobRepository jobRepository;
     private final ActiveJobRegistry activeJobRegistry;
     private final JobsProperties jobsProperties;
+    private final GenerationModelCatalog generationModelCatalog;
 
     public JobService(JobRepository jobRepository,
                       ActiveJobRegistry activeJobRegistry,
-                      JobsProperties jobsProperties) {
+                      JobsProperties jobsProperties,
+                      GenerationModelCatalog generationModelCatalog) {
         this.jobRepository = jobRepository;
         this.activeJobRegistry = activeJobRegistry;
         this.jobsProperties = jobsProperties;
+        this.generationModelCatalog = generationModelCatalog;
     }
 
     /**
      * Persist a new {@link JobStatus#PENDING} job for {@code user}.
      *
-     * <p>Two pre-flight checks run before any row is written:
+     * <p>Three pre-flight checks run before any row is written:</p>
      * <ol>
      *     <li>The number of {@code PENDING} jobs the user already has must
      *         be strictly below {@code app.jobs.max-pending-jobs-per-user};
@@ -64,8 +68,13 @@ public class JobService {
      *     <li>The user's credit balance must be at least
      *         {@code app.jobs.credits-per-image}; otherwise
      *         {@link InsufficientCreditsException} is raised.</li>
+     *     <li>{@code MODEL_ID} must match the configured local model catalog
+     *         ({@link GenerationModelCatalog}); otherwise
+     *         {@link com.ga.pixgen.exception.UnknownGenerationModelException}
+     *         is raised.</li>
      * </ol>
-     * Credits are <em>not</em> deducted here — the worker's success path
+     *
+     * <p>Credits are <em>not</em> deducted here — the worker's success path
      * performs the conditional {@code UPDATE users SET credits = credits - cost}
      * inside a per-user lock so concurrent jobs cannot drive a balance
      * negative.</p>
@@ -83,6 +92,8 @@ public class JobService {
             throw new InsufficientCreditsException(cost, available);
         }
 
+        generationModelCatalog.requireKnownModelId(submission.modelId());
+
         Job job = new Job();
         job.setUserId(user.getId());
         job.setStatus(JobStatus.PENDING);
@@ -93,11 +104,11 @@ public class JobService {
         job.setNegativePrompt(submission.negativePrompt());
         job.setWidth(submission.width());
         job.setHeight(submission.height());
-        job.setSteps(submission.steps());
-        job.setCfgScale(submission.cfgScale());
+        job.setNumInferenceSteps(submission.numInferenceSteps());
+        job.setGuidanceScale(submission.guidanceScale());
         job.setSeed(submission.seed());
         job.setSampler(submission.sampler());
-        job.setModelName(submission.modelName());
+        job.setModelId(submission.modelId());
         return jobRepository.save(job);
     }
 

@@ -1,7 +1,6 @@
 package com.ga.pixgen.repository;
 
 import com.ga.pixgen.model.Image;
-import com.ga.pixgen.model.ImageMetadata;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import org.junit.jupiter.api.Test;
@@ -28,11 +27,11 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
         assertThat(saved.getNegativePrompt()).isEqualTo("blurry");
         assertThat(saved.getWidth()).isEqualTo(512);
         assertThat(saved.getHeight()).isEqualTo(512);
-        assertThat(saved.getSteps()).isEqualTo(20);
-        assertThat(saved.getCfgScale()).isEqualTo(7.5);
+        assertThat(saved.getNumInferenceSteps()).isEqualTo(20);
+        assertThat(saved.getGuidanceScale()).isEqualTo(7.5);
         assertThat(saved.getSeed()).isEqualTo(42L);
         assertThat(saved.getSampler()).isEqualTo("euler");
-        assertThat(saved.getModelName()).isEqualTo("sd1.5");
+        assertThat(saved.getModelId()).isEqualTo("runwayml/stable-diffusion-v1-5");
         assertThat(saved.getCreditsCost()).isEqualTo(1);
         assertThat(saved.getProgress()).isZero();
         assertThat(saved.isCancelRequested()).isFalse();
@@ -88,39 +87,35 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
     }
 
     @Test
-    void persistsImageMetadataLinkedToImage() {
+    void persistsImageWithGenerationColumns() {
         Job job = em.persistFlushFind(newJob(3L, JobStatus.SUCCEEDED));
         Image image = new Image();
         image.setUserId(3L);
         image.setJob(job);
         image.setPrompt("p");
+        image.setNegativePrompt("n");
+        image.setModelId("runwayml/stable-diffusion-v1-5");
+        image.setSampler("euler");
+        image.setNumInferenceSteps(20);
+        image.setGuidanceScale(7.5);
+        image.setSeed(42L);
+        image.setScheduler("karras");
+        image.setClipSkip(2);
+        image.setLorasJson("[]");
+        image.setExtrasJson("{\"k\":\"v\"}");
         image.setFilePath("u/3/x.png");
         image.setMimeType("image/png");
         image.setFileSizeBytes(10L);
         image.setWidth(64);
         image.setHeight(64);
-        Image savedImage = em.persistFlushFind(image);
 
-        ImageMetadata md = new ImageMetadata();
-        md.setImage(savedImage);
-        md.setModelName("sd1.5");
-        md.setSampler("euler");
-        md.setSteps(20);
-        md.setCfgScale(7.5);
-        md.setSeed(42L);
-        md.setScheduler("karras");
-        md.setClipSkip(2);
-        md.setLorasJson("[]");
-        md.setExtrasJson("{\"k\":\"v\"}");
+        Image saved = em.persistFlushFind(image);
 
-        ImageMetadata saved = em.persistFlushFind(md);
-
-        assertThat(saved.getId()).isNotNull();
-        assertThat(saved.getImage().getId()).isEqualTo(savedImage.getId());
-        assertThat(saved.getModelName()).isEqualTo("sd1.5");
+        assertThat(saved.getModelId()).isEqualTo("runwayml/stable-diffusion-v1-5");
+        assertThat(saved.getNegativePrompt()).isEqualTo("n");
         assertThat(saved.getSampler()).isEqualTo("euler");
-        assertThat(saved.getSteps()).isEqualTo(20);
-        assertThat(saved.getCfgScale()).isEqualTo(7.5);
+        assertThat(saved.getNumInferenceSteps()).isEqualTo(20);
+        assertThat(saved.getGuidanceScale()).isEqualTo(7.5);
         assertThat(saved.getSeed()).isEqualTo(42L);
         assertThat(saved.getScheduler()).isEqualTo("karras");
         assertThat(saved.getClipSkip()).isEqualTo(2);
@@ -136,11 +131,11 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
         job.setNegativePrompt("blurry");
         job.setWidth(512);
         job.setHeight(512);
-        job.setSteps(20);
-        job.setCfgScale(7.5);
+        job.setNumInferenceSteps(20);
+        job.setGuidanceScale(7.5);
         job.setSeed(42L);
         job.setSampler("euler");
-        job.setModelName("sd1.5");
+        job.setModelId("runwayml/stable-diffusion-v1-5");
         job.setCreditsCost(1);
         return job;
     }

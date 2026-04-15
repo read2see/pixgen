@@ -10,7 +10,6 @@ import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.model.Permission;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
-import com.ga.pixgen.repository.ImageMetadataRepository;
 import com.ga.pixgen.repository.ImageRepository;
 import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
@@ -109,9 +108,6 @@ class JobControllerTest {
     private ImageRepository imageRepository;
 
     @MockitoBean
-    private ImageMetadataRepository imageMetadataRepository;
-
-    @MockitoBean
     private EmailService emailService;
 
     @MockitoBean
@@ -145,11 +141,11 @@ class JobControllerTest {
                 "prompt", "a sunset over the ocean",
                 "width", 512,
                 "height", 512,
-                "steps", 20,
-                "cfgScale", 7.5,
+                "numInferenceSteps", 20,
+                "guidanceScale", 7.5,
                 "seed", 42,
                 "sampler", "euler-a",
-                "modelName", "sd-1.5");
+                "modelId", "runwayml/stable-diffusion-v1-5");
 
         mockMvc.perform(post("/api/jobs")
                         .cookie(authCookie())
@@ -178,7 +174,9 @@ class JobControllerTest {
 
     @Test
     void createJob_returns401_whenUnauthenticated() throws Exception {
-        Map<String, Object> body = Map.of("prompt", "anything");
+        Map<String, Object> body = Map.of(
+                "prompt", "anything",
+                "modelId", "runwayml/stable-diffusion-v1-5");
 
         mockMvc.perform(post("/api/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -192,7 +190,9 @@ class JobControllerTest {
         when(userRepository.findByEmail(reader.getEmail())).thenReturn(Optional.of(reader));
         String token = jwtService.generateToken(reader.getEmail());
 
-        Map<String, Object> body = Map.of("prompt", "anything");
+        Map<String, Object> body = Map.of(
+                "prompt", "anything",
+                "modelId", "runwayml/stable-diffusion-v1-5");
 
         mockMvc.perform(post("/api/jobs")
                         .cookie(new Cookie("pixgen_token", token))
@@ -208,7 +208,9 @@ class JobControllerTest {
         when(jobService.submit(eq(authedUser), any(JobSubmission.class)))
                 .thenThrow(new InsufficientCreditsException(1, 0));
 
-        Map<String, Object> body = Map.of("prompt", "anything");
+        Map<String, Object> body = Map.of(
+                "prompt", "anything",
+                "modelId", "runwayml/stable-diffusion-v1-5");
 
         mockMvc.perform(post("/api/jobs")
                         .cookie(authCookie())
@@ -222,7 +224,9 @@ class JobControllerTest {
         when(jobService.submit(eq(authedUser), any(JobSubmission.class)))
                 .thenThrow(new PendingJobLimitException(10));
 
-        Map<String, Object> body = Map.of("prompt", "anything");
+        Map<String, Object> body = Map.of(
+                "prompt", "anything",
+                "modelId", "runwayml/stable-diffusion-v1-5");
 
         mockMvc.perform(post("/api/jobs")
                         .cookie(authCookie())
@@ -391,11 +395,11 @@ class JobControllerTest {
         job.setNegativePrompt(null);
         job.setWidth(512);
         job.setHeight(512);
-        job.setSteps(20);
-        job.setCfgScale(7.5);
+        job.setNumInferenceSteps(20);
+        job.setGuidanceScale(7.5);
         job.setSeed(42L);
         job.setSampler("euler-a");
-        job.setModelName("sd-1.5");
+        job.setModelId("runwayml/stable-diffusion-v1-5");
         job.setCreditsCost(1);
         job.setProgress(status == JobStatus.SUCCEEDED ? 100 : 0);
         Instant now = Instant.parse("2026-04-13T12:00:00Z");

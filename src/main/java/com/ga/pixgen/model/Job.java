@@ -60,11 +60,13 @@ public class Job {
     @Column
     private Integer height;
 
-    @Column
-    private Integer steps;
+    /** docker-diffusers-api {@code modelInputs.num_inference_steps} */
+    @Column(name = "num_inference_steps")
+    private Integer numInferenceSteps;
 
-    @Column(name = "cfg_scale")
-    private Double cfgScale;
+    /** docker-diffusers-api {@code modelInputs.guidance_scale} */
+    @Column(name = "guidance_scale")
+    private Double guidanceScale;
 
     @Column
     private Long seed;
@@ -72,8 +74,9 @@ public class Job {
     @Column(length = 64)
     private String sampler;
 
-    @Column(name = "model_name", length = 128)
-    private String modelName;
+    /** docker-diffusers-api {@code callInputs.MODEL_ID} (HuggingFace id or local bundle id) */
+    @Column(name = "model_id", length = 256)
+    private String modelId;
 
     @Column(name = "credits_cost", nullable = false)
     private Integer creditsCost;

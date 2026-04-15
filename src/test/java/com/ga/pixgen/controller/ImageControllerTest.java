@@ -2,11 +2,9 @@ package com.ga.pixgen.controller;
 
 import com.ga.pixgen.exception.ResourceNotFoundException;
 import com.ga.pixgen.model.Image;
-import com.ga.pixgen.model.ImageMetadata;
 import com.ga.pixgen.model.Permission;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
-import com.ga.pixgen.repository.ImageMetadataRepository;
 import com.ga.pixgen.repository.ImageRepository;
 import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
@@ -41,7 +39,6 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -105,9 +102,6 @@ class ImageControllerTest {
 
     @MockitoBean
     private ImageRepository imageRepository;
-
-    @MockitoBean
-    private ImageMetadataRepository imageMetadataRepository;
 
     @MockitoBean
     private EmailService emailService;
@@ -191,31 +185,33 @@ class ImageControllerTest {
     }
 
     @Test
-    void getImage_returns200_withMetadata_whenCallerOwnsImage() throws Exception {
+    void getImage_returns200_withGenerationFields_whenCallerOwnsImage() throws Exception {
         Image image = sampleImage(101L, owner.getId(), 5L, "owner/one.png");
-        ImageMetadata metadata = sampleMetadata(image, "sd-1.5");
+        image.setModelId("runwayml/stable-diffusion-v1-5");
+        image.setSampler("euler-a");
+        image.setNumInferenceSteps(20);
+        image.setGuidanceScale(7.5);
+        image.setSeed(42L);
         when(imageRepository.findById(101L)).thenReturn(Optional.of(image));
-        when(imageMetadataRepository.findByImageId(101L)).thenReturn(Optional.of(metadata));
 
         mockMvc.perform(get("/api/images/101")
                         .cookie(authCookie(OWNER_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(101))
                 .andExpect(jsonPath("$.userId").value(owner.getId()))
-                .andExpect(jsonPath("$.metadata.modelName").value("sd-1.5"));
+                .andExpect(jsonPath("$.modelId").value("runwayml/stable-diffusion-v1-5"));
     }
 
     @Test
-    void getImage_returns200_evenWithoutMetadata_present() throws Exception {
+    void getImage_returns200_whenNoOptionalGenerationFields() throws Exception {
         Image image = sampleImage(102L, owner.getId(), 6L, "owner/two.png");
         when(imageRepository.findById(102L)).thenReturn(Optional.of(image));
-        when(imageMetadataRepository.findByImageId(102L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/images/102")
                         .cookie(authCookie(OWNER_EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(102))
-                .andExpect(jsonPath("$.metadata").doesNotExist());
+                .andExpect(jsonPath("$.modelId").doesNotExist());
     }
 
     @Test
@@ -235,16 +231,12 @@ class ImageControllerTest {
         mockMvc.perform(get("/api/images/101")
                         .cookie(authCookie(OTHER_EMAIL)))
                 .andExpect(status().isForbidden());
-
-        verify(imageMetadataRepository, never()).findByImageId(any());
     }
 
     @Test
     void getImage_returns200_whenAdminReadsAnyImage() throws Exception {
         Image image = sampleImage(101L, owner.getId(), 5L, "owner/one.png");
-        ImageMetadata metadata = sampleMetadata(image, "sd-1.5");
         when(imageRepository.findById(101L)).thenReturn(Optional.of(image));
-        when(imageMetadataRepository.findByImageId(101L)).thenReturn(Optional.of(metadata));
 
         mockMvc.perform(get("/api/images/101")
                         .cookie(authCookie(ADMIN_EMAIL)))
@@ -330,18 +322,6 @@ class ImageControllerTest {
         image.setHeight(32);
         image.setCreatedAt(Instant.parse("2026-04-13T12:00:00Z"));
         return image;
-    }
-
-    private static ImageMetadata sampleMetadata(Image image, String modelName) {
-        ImageMetadata metadata = new ImageMetadata();
-        metadata.setId(7L);
-        metadata.setImage(image);
-        metadata.setModelName(modelName);
-        metadata.setSampler("euler-a");
-        metadata.setSteps(20);
-        metadata.setCfgScale(7.5);
-        metadata.setSeed(42L);
-        return metadata;
     }
 
     private static User userWithPermissions(String email, long userId, String roleName, String... permissionNames) {

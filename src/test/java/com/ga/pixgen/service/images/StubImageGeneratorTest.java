@@ -43,6 +43,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class StubImageGeneratorTest {
 
+    private static GenerationRequest stubRequest(long jobId, long userId, int w, int h, String prompt, Long seed) {
+        return new GenerationRequest(jobId, userId, w, h, prompt, null, null, null, seed, null, "stub-model");
+    }
+
     @TempDir
     Path tempDir;
 
@@ -65,7 +69,7 @@ class StubImageGeneratorTest {
     @Test
     void generate_returnsStoredImageWithRequestedDimensionsAndPngMime() throws Exception {
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(11L, 22L, 64, 32, "a red square", 1234L);
+        GenerationRequest request = stubRequest(11L, 22L, 64, 32, "a red square", 1234L);
 
         StoredImage stored = generator.generate(request, progress -> {});
 
@@ -79,7 +83,7 @@ class StubImageGeneratorTest {
     @Test
     void generate_writesDecodablePngWithMatchingDimensions() throws Exception {
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(1L, 2L, 48, 24, "anything", 7L);
+        GenerationRequest request = stubRequest(1L, 2L, 48, 24, "anything", 7L);
 
         StoredImage stored = generator.generate(request, progress -> {});
 
@@ -96,7 +100,7 @@ class StubImageGeneratorTest {
     @Test
     void generate_emitsProgress_monotonicallyEndingAt100() throws Exception {
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(1L, 5L, 16, 16, "p", 1L);
+        GenerationRequest request = stubRequest(1L, 5L, 16, 16, "p", 1L);
         List<Integer> progress = new ArrayList<>();
 
         generator.generate(request, progress::add);
@@ -119,7 +123,7 @@ class StubImageGeneratorTest {
         jobsProperties.setStubMinMs(80L);
         jobsProperties.setStubMaxMs(160L);
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(1L, 3L, 16, 16, "p", 1L);
+        GenerationRequest request = stubRequest(1L, 3L, 16, 16, "p", 1L);
 
         long start = System.nanoTime();
         generator.generate(request, p -> {});
@@ -139,7 +143,7 @@ class StubImageGeneratorTest {
         jobsProperties.setStubMinMs(2_000L);
         jobsProperties.setStubMaxMs(2_000L);
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(1L, 9L, 16, 16, "p", 1L);
+        GenerationRequest request = stubRequest(1L, 9L, 16, 16, "p", 1L);
 
         AtomicReference<Throwable> caught = new AtomicReference<>();
         CountDownLatch started = new CountDownLatch(1);
@@ -180,7 +184,7 @@ class StubImageGeneratorTest {
         jobsProperties.setStubMinMs(2_000L);
         jobsProperties.setStubMaxMs(2_000L);
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
-        GenerationRequest request = new GenerationRequest(1L, 77L, 16, 16, "p", 1L);
+        GenerationRequest request = stubRequest(1L, 77L, 16, 16, "p", 1L);
 
         ExecutorService pool = Executors.newSingleThreadExecutor();
         try {
@@ -218,10 +222,10 @@ class StubImageGeneratorTest {
         StubImageGenerator generator = new StubImageGenerator(jobsProperties, storage, new Random(0));
 
         assertThatThrownBy(() ->
-                generator.generate(new GenerationRequest(1L, 1L, 0, 16, "p", 1L), p -> {}))
+                generator.generate(stubRequest(1L, 1L, 0, 16, "p", 1L), p -> {}))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() ->
-                generator.generate(new GenerationRequest(1L, 1L, 16, -1, "p", 1L), p -> {}))
+                generator.generate(stubRequest(1L, 1L, 16, -1, "p", 1L), p -> {}))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

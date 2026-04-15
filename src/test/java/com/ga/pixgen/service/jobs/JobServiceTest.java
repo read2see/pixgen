@@ -1,20 +1,22 @@
 package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.config.JobsProperties;
+import com.ga.pixgen.config.GenerationModelsProperties;
 import com.ga.pixgen.exception.InsufficientCreditsException;
 import com.ga.pixgen.exception.JobNotCancellableException;
 import com.ga.pixgen.exception.JobNotFoundException;
 import com.ga.pixgen.exception.PendingJobLimitException;
+import com.ga.pixgen.exception.UnknownGenerationModelException;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.JobRepository;
+import com.ga.pixgen.service.generation.GenerationModelCatalog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,16 +32,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Submit-path tests for {@link JobService}. Covers the two pre-flight
- * validations the plan calls out for {@code POST /api/jobs}:
- * <ul>
- *     <li>Per-user pending-job ceiling
- *         ({@code app.jobs.max-pending-jobs-per-user}).</li>
- *     <li>Credit balance check against
- *         {@code app.jobs.credits-per-image}.</li>
- * </ul>
- * Both must run <em>before</em> the {@link Job} is persisted so failures
- * never leak rows and never burn credits.
+ * <p>Covers pre-flight checks before a {@link Job} row is persisted: pending
+ * ceiling, credit balance, and known {@code MODEL_ID}.</p>
  */
 @ExtendWith(MockitoExtension.class)
 class JobServiceTest {
@@ -51,8 +45,8 @@ class JobServiceTest {
     private ActiveJobRegistry activeJobRegistry;
 
     private JobsProperties jobsProperties;
+    private GenerationModelCatalog catalog;
 
-    @InjectMocks
     private JobService jobService;
 
     private User user;
@@ -62,7 +56,15 @@ class JobServiceTest {
         jobsProperties = new JobsProperties();
         jobsProperties.setMaxPendingJobsPerUser(10);
         jobsProperties.setCreditsPerImage(1);
-        jobService = new JobService(jobRepository, activeJobRegistry, jobsProperties);
+
+        GenerationModelsProperties modelProps = new GenerationModelsProperties();
+        GenerationModelsProperties.ModelEntry entry = new GenerationModelsProperties.ModelEntry();
+        entry.setModelId("runwayml/stable-diffusion-v1-5");
+        entry.setLabel("SD 1.5");
+        modelProps.setModels(java.util.List.of(entry));
+        catalog = new GenerationModelCatalog(modelProps);
+
+        jobService = new JobService(jobRepository, activeJobRegistry, jobsProperties, catalog);
 
         Role role = new Role();
         role.setId(2L);
@@ -93,7 +95,7 @@ class JobServiceTest {
                 7.5,
                 42L,
                 "euler-a",
-                "sd-1.5"
+                "runwayml/stable-diffusion-v1-5"
         );
 
         Job saved = jobService.submit(user, submission);
@@ -108,15 +110,28 @@ class JobServiceTest {
         assertThat(persisted.getNegativePrompt()).isEqualTo("blurry");
         assertThat(persisted.getWidth()).isEqualTo(512);
         assertThat(persisted.getHeight()).isEqualTo(512);
-        assertThat(persisted.getSteps()).isEqualTo(30);
-        assertThat(persisted.getCfgScale()).isEqualTo(7.5);
+        assertThat(persisted.getNumInferenceSteps()).isEqualTo(30);
+        assertThat(persisted.getGuidanceScale()).isEqualTo(7.5);
         assertThat(persisted.getSeed()).isEqualTo(42L);
         assertThat(persisted.getSampler()).isEqualTo("euler-a");
-        assertThat(persisted.getModelName()).isEqualTo("sd-1.5");
+        assertThat(persisted.getModelId()).isEqualTo("runwayml/stable-diffusion-v1-5");
         assertThat(persisted.getCreditsCost()).isEqualTo(jobsProperties.getCreditsPerImage());
         assertThat(persisted.getProgress()).isZero();
         assertThat(persisted.isCancelRequested()).isFalse();
         assertThat(saved.getId()).isEqualTo(123L);
+    }
+
+    @Test
+    void submit_throwsUnknownModel_whenModelIdNotInCatalog() {
+        when(jobRepository.countByUserIdAndStatus(7L, JobStatus.PENDING)).thenReturn(0L);
+
+        JobSubmission submission = new JobSubmission(
+                "anything", null, null, null, null, null, null, null, "unknown/model");
+
+        assertThatThrownBy(() -> jobService.submit(user, submission))
+                .isInstanceOf(UnknownGenerationModelException.class);
+
+        verify(jobRepository, never()).save(any(Job.class));
     }
 
     @Test
@@ -125,7 +140,8 @@ class JobServiceTest {
         when(jobRepository.countByUserIdAndStatus(7L, JobStatus.PENDING)).thenReturn(3L);
 
         JobSubmission submission = new JobSubmission(
-                "anything", null, null, null, null, null, null, null, null);
+                "anything", null, null, null, null, null, null, null,
+                "runwayml/stable-diffusion-v1-5");
 
         assertThatThrownBy(() -> jobService.submit(user, submission))
                 .isInstanceOf(PendingJobLimitException.class);
@@ -140,7 +156,8 @@ class JobServiceTest {
         when(jobRepository.countByUserIdAndStatus(7L, JobStatus.PENDING)).thenReturn(0L);
 
         JobSubmission submission = new JobSubmission(
-                "anything", null, null, null, null, null, null, null, null);
+                "anything", null, null, null, null, null, null, null,
+                "runwayml/stable-diffusion-v1-5");
 
         assertThatThrownBy(() -> jobService.submit(user, submission))
                 .isInstanceOf(InsufficientCreditsException.class);

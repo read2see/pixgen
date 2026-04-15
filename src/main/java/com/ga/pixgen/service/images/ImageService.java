@@ -2,10 +2,8 @@ package com.ga.pixgen.service.images;
 
 import com.ga.pixgen.exception.ResourceNotFoundException;
 import com.ga.pixgen.model.Image;
-import com.ga.pixgen.model.ImageMetadata;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
-import com.ga.pixgen.repository.ImageMetadataRepository;
 import com.ga.pixgen.repository.ImageRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -14,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -32,14 +29,11 @@ public class ImageService {
     static final Set<String> PRIVILEGED_ROLES = Set.of("ADMIN", "MODERATOR");
 
     private final ImageRepository imageRepository;
-    private final ImageMetadataRepository imageMetadataRepository;
     private final LocalImageStorage storage;
 
     public ImageService(ImageRepository imageRepository,
-                        ImageMetadataRepository imageMetadataRepository,
                         LocalImageStorage storage) {
         this.imageRepository = imageRepository;
-        this.imageMetadataRepository = imageMetadataRepository;
         this.storage = storage;
     }
 
@@ -65,11 +59,6 @@ public class ImageService {
             throw new AccessDeniedException("Not allowed to access image " + id);
         }
         return image;
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<ImageMetadata> getMetadata(Long imageId) {
-        return imageMetadataRepository.findByImageId(imageId);
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.ga.pixgen.controller;
 
-import com.ga.pixgen.dto.ImageMetadataDto;
 import com.ga.pixgen.dto.ImageResponse;
 import com.ga.pixgen.model.Image;
 import com.ga.pixgen.security.CustomUserDetails;
@@ -51,10 +50,7 @@ public class ImageController {
     public ImageResponse get(@PathVariable Long id,
                              @AuthenticationPrincipal CustomUserDetails principal) {
         Image image = imageService.get(id, principal.getUser());
-        ImageMetadataDto metadata = imageService.getMetadata(id)
-                .map(ImageMetadataDto::fromEntity)
-                .orElse(null);
-        return ImageResponse.fromEntity(image, metadata);
+        return ImageResponse.fromEntity(image);
     }
 
     @GetMapping("/{id}/file")
