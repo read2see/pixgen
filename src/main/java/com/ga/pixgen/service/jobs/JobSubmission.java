@@ -15,10 +15,10 @@ public record JobSubmission(
         String negativePrompt,
         Integer width,
         Integer height,
-        Integer steps,
-        Double cfgScale,
+        Integer numInferenceSteps,
+        Double guidanceScale,
         Long seed,
         String sampler,
-        String modelName
+        String modelId
 ) {
 }

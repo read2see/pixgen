@@ -9,11 +9,9 @@ import jakarta.validation.constraints.Size;
 /**
  * User-facing request body for {@code POST /api/jobs}.
  *
- * <p>The fields mirror {@link JobSubmission} but carry validation
- * constraints so client mistakes surface as {@code 400 Bad Request}
- * instead of bubbling into the service layer. Optional knobs are left
- * unannotated (other than reasonable upper bounds) so users can omit
- * them and let the generator backend pick its defaults.</p>
+ * <p>Aligned with docker-diffusers-api {@code modelInputs} / {@code callInputs}:
+ * {@code num_inference_steps}, {@code guidance_scale}, {@code MODEL_ID} as
+ * {@code model_id}.</p>
  */
 public record CreateJobRequest(
         @NotBlank
@@ -33,19 +31,20 @@ public record CreateJobRequest(
 
         @Min(1)
         @Max(150)
-        Integer steps,
+        Integer numInferenceSteps,
 
         @Min(0)
         @Max(30)
-        Double cfgScale,
+        Double guidanceScale,
 
         Long seed,
 
         @Size(max = 64)
         String sampler,
 
-        @Size(max = 128)
-        String modelName
+        @NotBlank
+        @Size(max = 256)
+        String modelId
 ) {
 
     /**
@@ -59,10 +58,10 @@ public record CreateJobRequest(
                 negativePrompt,
                 width,
                 height,
-                steps,
-                cfgScale,
+                numInferenceSteps,
+                guidanceScale,
                 seed,
                 sampler,
-                modelName);
+                modelId);
     }
 }

@@ -43,8 +43,8 @@ import static org.mockito.Mockito.when;
  *     <li>Forward every progress callback to the {@link JobEventBroker}
  *         and persist it on the {@code progress} column so cross-instance
  *         pollers can see lifecycle progress without reading SSE.</li>
- *     <li>Take the per-user lock and delegate the four database
- *         mutations (credit deduction, image, metadata, status flip) to
+ *     <li>Take the per-user lock and delegate the database mutations
+ *         (credit deduction, image row, status flip) to
  *         {@link JobCompletionService} so they run atomically inside a
  *         single Spring-managed transaction.</li>
  *     <li>Emit a {@code SUCCEEDED} status event when
@@ -116,7 +116,12 @@ class JobWorkerTest {
         assertThat(request.width()).isEqualTo(64);
         assertThat(request.height()).isEqualTo(32);
         assertThat(request.prompt()).isEqualTo("a cat");
+        assertThat(request.negativePrompt()).isNull();
+        assertThat(request.numInferenceSteps()).isEqualTo(20);
+        assertThat(request.guidanceScale()).isEqualTo(7.5);
         assertThat(request.seed()).isEqualTo(42L);
+        assertThat(request.sampler()).isEqualTo("euler-a");
+        assertThat(request.modelId()).isEqualTo("runwayml/stable-diffusion-v1-5");
     }
 
     @Test
@@ -366,11 +371,11 @@ class JobWorkerTest {
         job.setNegativePrompt(null);
         job.setWidth(64);
         job.setHeight(32);
-        job.setSteps(20);
-        job.setCfgScale(7.5);
+        job.setNumInferenceSteps(20);
+        job.setGuidanceScale(7.5);
         job.setSeed(42L);
         job.setSampler("euler-a");
-        job.setModelName("sd-1.5");
+        job.setModelId("runwayml/stable-diffusion-v1-5");
         job.setCreditsCost(1);
         job.setProgress(0);
         return job;

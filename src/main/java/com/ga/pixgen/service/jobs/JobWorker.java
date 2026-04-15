@@ -20,9 +20,8 @@ import java.util.function.IntConsumer;
  * (set by the scheduler) to one of three terminal states:</p>
  * <ul>
  *     <li>{@link JobStatus#SUCCEEDED} — image produced, credits deducted,
- *         {@link com.ga.pixgen.model.Image Image} +
- *         {@link com.ga.pixgen.model.ImageMetadata ImageMetadata}
- *         persisted via {@link JobCompletionService}.</li>
+ *         {@link com.ga.pixgen.model.Image Image} persisted via
+ *         {@link JobCompletionService}.</li>
  *     <li>{@link JobStatus#CANCELLED} — observed an interrupt or one of
  *         the cancel flags between progress ticks; the on-disk artifact
  *         (if any) is deleted before exit.</li>
@@ -36,7 +35,7 @@ import java.util.function.IntConsumer;
  * {@link java.util.concurrent.locks.ReentrantLock} (via
  * {@link UserJobLocks}) so two parallel jobs of the same user cannot
  * race the conditional credit {@code UPDATE} into a negative balance.
- * Atomicity of the four mutations themselves is provided by
+ * Atomicity of the three mutations themselves is provided by
  * {@link JobCompletionService}'s {@code @Transactional} method.</p>
  *
  * <p>Cancellation is honoured between progress ticks via three signals:
@@ -109,7 +108,12 @@ public class JobWorker {
                 orDefault(job.getWidth(), DEFAULT_DIMENSION),
                 orDefault(job.getHeight(), DEFAULT_DIMENSION),
                 job.getPrompt(),
-                job.getSeed());
+                job.getNegativePrompt(),
+                job.getNumInferenceSteps(),
+                job.getGuidanceScale(),
+                job.getSeed(),
+                job.getSampler(),
+                job.getModelId());
     }
 
     private IntConsumer buildProgressListener(Long jobId, Long userId) {

@@ -3,7 +3,6 @@ package com.ga.pixgen.security;
 import com.ga.pixgen.model.Permission;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
-import com.ga.pixgen.repository.ImageMetadataRepository;
 import com.ga.pixgen.repository.ImageRepository;
 import com.ga.pixgen.repository.JobRepository;
 import com.ga.pixgen.repository.PermissionRepository;
@@ -69,9 +68,6 @@ class RbacIntegrationTest {
 
     @MockitoBean
     private ImageRepository imageRepository;
-
-    @MockitoBean
-    private ImageMetadataRepository imageMetadataRepository;
 
     @MockitoBean
     private EmailService emailService;
