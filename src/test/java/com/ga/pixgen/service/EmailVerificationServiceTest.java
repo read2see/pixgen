@@ -1,5 +1,6 @@
 package com.ga.pixgen.service;
 
+import com.ga.pixgen.event.VerificationEmailRequestedEvent;
 import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Token;
@@ -14,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
@@ -40,7 +42,7 @@ class EmailVerificationServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private EmailService emailService;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private EmailVerificationService service;
@@ -51,7 +53,7 @@ class EmailVerificationServiceTest {
     }
 
     @Test
-    void issueToken_savesEmailVerificationToken_andSendsEmail() {
+    void issueToken_savesEmailVerificationToken_andPublishesEmailEvent() {
         String email = "alice@example.com";
         User user = newUser(email, false);
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
@@ -68,7 +70,11 @@ class EmailVerificationServiceTest {
         assertThat(saved.isUsed()).isFalse();
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(saved.getExpiresAt()).isAfter(Instant.now().plus(TTL_MINUTES - 1, ChronoUnit.MINUTES));
-        verify(emailService).sendVerificationEmail(email, saved.getId());
+        ArgumentCaptor<VerificationEmailRequestedEvent> eventCaptor =
+                ArgumentCaptor.forClass(VerificationEmailRequestedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().email()).isEqualTo(email);
+        assertThat(eventCaptor.getValue().tokenId()).isEqualTo(saved.getId());
         assertThat(issued).isSameAs(saved);
     }
 
@@ -80,7 +86,7 @@ class EmailVerificationServiceTest {
 
         assertThat(issued).isNull();
         verify(tokenRepository, never()).save(any());
-        verify(emailService, never()).sendVerificationEmail(any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -92,7 +98,7 @@ class EmailVerificationServiceTest {
 
         assertThat(issued).isNull();
         verify(tokenRepository, never()).save(any());
-        verify(emailService, never()).sendVerificationEmail(any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test

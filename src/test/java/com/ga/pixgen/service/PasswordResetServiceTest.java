@@ -1,5 +1,6 @@
 package com.ga.pixgen.service;
 
+import com.ga.pixgen.event.PasswordResetEmailRequestedEvent;
 import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Token;
@@ -14,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -41,7 +43,7 @@ class PasswordResetServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private EmailService emailService;
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -55,7 +57,7 @@ class PasswordResetServiceTest {
     }
 
     @Test
-    void requestReset_savesPasswordResetToken_andSendsEmail_whenUserExists() {
+    void requestReset_savesPasswordResetToken_andPublishesEmailEvent_whenUserExists() {
         String email = "alice@example.com";
         User user = newUser(email);
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
@@ -74,7 +76,11 @@ class PasswordResetServiceTest {
         assertThat(saved.getExpiresAt())
                 .isAfter(Instant.now().plus(TTL_MINUTES - 1, ChronoUnit.MINUTES))
                 .isBefore(Instant.now().plus(TTL_MINUTES + 1, ChronoUnit.MINUTES));
-        verify(emailService).sendPasswordResetEmail(email, saved.getId());
+        ArgumentCaptor<PasswordResetEmailRequestedEvent> eventCaptor =
+                ArgumentCaptor.forClass(PasswordResetEmailRequestedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().email()).isEqualTo(email);
+        assertThat(eventCaptor.getValue().tokenId()).isEqualTo(saved.getId());
     }
 
     @Test
@@ -84,7 +90,7 @@ class PasswordResetServiceTest {
         service.requestReset("ghost@example.com");
 
         verify(tokenRepository, never()).save(any());
-        verify(emailService, never()).sendPasswordResetEmail(any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test

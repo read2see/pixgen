@@ -1,5 +1,6 @@
 package com.ga.pixgen.service;
 
+import com.ga.pixgen.event.VerificationEmailRequestedEvent;
 import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Token;
@@ -9,6 +10,7 @@ import com.ga.pixgen.repository.TokenRepository;
 import com.ga.pixgen.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +24,7 @@ public class EmailVerificationService {
 
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
-    private final EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.token.email-verification-ttl-minutes}")
     private long ttlMinutes;
@@ -44,7 +46,7 @@ public class EmailVerificationService {
         token.setUsed(false);
 
         Token saved = tokenRepository.save(token);
-        emailService.sendVerificationEmail(email, saved.getId());
+        eventPublisher.publishEvent(new VerificationEmailRequestedEvent(email, saved.getId()));
         return saved;
     }
 

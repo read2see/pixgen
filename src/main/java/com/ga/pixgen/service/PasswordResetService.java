@@ -1,5 +1,6 @@
 package com.ga.pixgen.service;
 
+import com.ga.pixgen.event.PasswordResetEmailRequestedEvent;
 import com.ga.pixgen.exception.ExpiredTokenException;
 import com.ga.pixgen.exception.InvalidTokenException;
 import com.ga.pixgen.model.Token;
@@ -9,6 +10,7 @@ import com.ga.pixgen.repository.TokenRepository;
 import com.ga.pixgen.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +25,7 @@ public class PasswordResetService {
 
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
-    private final EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.token.password-reset-ttl-minutes}")
@@ -52,7 +54,7 @@ public class PasswordResetService {
         token.setUsed(false);
 
         Token saved = tokenRepository.save(token);
-        emailService.sendPasswordResetEmail(email, saved.getId());
+        eventPublisher.publishEvent(new PasswordResetEmailRequestedEvent(email, saved.getId()));
     }
 
     @Transactional
