@@ -183,4 +183,26 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                AND j.id <= :id
             """)
     long countPendingNotAfter(@Param("id") Long id);
+
+    /**
+     * Reset every {@code RUNNING} row whose {@code claimed_by_instance}
+     * matches the supplied identifier back to {@code PENDING} and clear
+     * the instance tag. Called once at startup so a JVM that crashed
+     * mid-flight can pick up its own abandoned work on the next boot
+     * without stomping on rows owned by a different live instance.
+     * Returns the number of rows reset.
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE jobs
+               SET status = 'PENDING',
+                   claimed_by_instance = NULL,
+                   claimed_at = NULL,
+                   started_at = NULL,
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE status = 'RUNNING'
+               AND claimed_by_instance = :instanceId
+            """, nativeQuery = true)
+    int requeueRunningOwnedBy(@Param("instanceId") String instanceId);
 }

@@ -101,6 +101,38 @@ class JobSchedulerTest {
     }
 
     @Test
+    void poll_doesNothing_afterSchedulerShutdownIsCalled() {
+        // The scheduler's own @PreDestroy hook flips a volatile flag so the
+        // poller stops claiming new work even before the registry has had a
+        // chance to react. This is the application-side half of the graceful
+        // shutdown contract: the executor pool drains its in-flight work
+        // (configured on JobExecutorConfig) while the poller refuses to grow
+        // the queue.
+        scheduler.shutdown();
+
+        scheduler.poll();
+
+        verifyNoInteractions(jobRepository);
+        verifyNoInteractions(executor);
+        verify(registry, never()).tryRegister(any(), any());
+        assertThat(scheduler.isShuttingDown()).isTrue();
+    }
+
+    @Test
+    void recoverAbandonedJobs_requeuesRowsTaggedWithThisInstance() {
+        // Startup recovery delegates to the repository query, scoped by the
+        // configured instance id so abandoned RUNNING rows from a previous
+        // crash of *this* JVM (and only this JVM) are flipped back to
+        // PENDING. Simulating the @PostConstruct invocation directly keeps
+        // the test deterministic.
+        when(jobRepository.requeueRunningOwnedBy("instance-A")).thenReturn(3);
+
+        scheduler.recoverAbandonedJobs();
+
+        verify(jobRepository).requeueRunningOwnedBy("instance-A");
+    }
+
+    @Test
     void poll_doesNothing_whenSemaphoreHasNoAvailablePermits() throws Exception {
         instanceSemaphore.acquire(2);
 

@@ -4,7 +4,12 @@ import com.ga.pixgen.config.JobsProperties;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import com.ga.pixgen.repository.JobRepository;
+import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -47,6 +52,8 @@ import java.util.concurrent.Semaphore;
 @Component
 public class JobScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(JobScheduler.class);
+
     private final JobRepository jobRepository;
     private final ActiveJobRegistry registry;
     private final ThreadPoolTaskExecutor executor;
@@ -54,6 +61,13 @@ public class JobScheduler {
     private final JobsProperties properties;
     private final JobWorker worker;
     private final JobEventBroker broker;
+
+    /**
+     * Mirrors {@link ActiveJobRegistry#isShuttingDown()} but lives on the
+     * scheduler so the poller can short-circuit independently of the
+     * registry. Flipped by {@link #shutdown()} via {@link PreDestroy}.
+     */
+    private volatile boolean shuttingDown;
 
     public JobScheduler(JobRepository jobRepository,
                         ActiveJobRegistry registry,
@@ -72,6 +86,25 @@ public class JobScheduler {
     }
 
     /**
+     * Reclaim abandoned {@code RUNNING} rows that this instance left behind
+     * before its previous shutdown — typically because the JVM crashed
+     * mid-flight. Runs once after the context is fully initialised (so the
+     * {@code @Transactional} proxy is in place): rows tagged with our
+     * {@link JobsProperties#getInstanceId() instanceId} are flipped back to
+     * {@code PENDING} so the next poll picks them up. Rows owned by a
+     * different live instance are deliberately left alone.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void recoverAbandonedJobs() {
+        int requeued = jobRepository.requeueRunningOwnedBy(properties.getInstanceId());
+        if (requeued > 0) {
+            log.info("Requeued {} RUNNING jobs abandoned by instance {}",
+                    requeued, properties.getInstanceId());
+        }
+    }
+
+    /**
      * Single poll iteration. Public so unit tests can drive it
      * deterministically without waiting for the {@code @Scheduled}
      * trigger.
@@ -79,7 +112,7 @@ public class JobScheduler {
     @Scheduled(fixedDelayString = "${app.jobs.poll-interval-ms:1000}")
     @Transactional
     public void poll() {
-        if (registry.isShuttingDown()) {
+        if (shuttingDown || registry.isShuttingDown()) {
             return;
         }
         int slots = instanceSemaphore.availablePermits();
@@ -90,6 +123,24 @@ public class JobScheduler {
         for (Job job : claimed) {
             dispatch(job);
         }
+    }
+
+    public boolean isShuttingDown() {
+        return shuttingDown;
+    }
+
+    /**
+     * Flip the volatile shutdown flag so the next {@link #poll()} tick
+     * bails out before claiming new work. The bounded
+     * {@link ThreadPoolTaskExecutor} owned by
+     * {@link com.ga.pixgen.config.JobExecutorConfig} is configured with
+     * {@code waitForTasksToCompleteOnShutdown=true}, so any in-flight
+     * worker is allowed to drain on its own; cancellation, when
+     * requested, still flows through {@link ActiveJobRegistry}.
+     */
+    @PreDestroy
+    public void shutdown() {
+        this.shuttingDown = true;
     }
 
     private void dispatch(Job job) {
