@@ -45,6 +45,9 @@ public class User {
     @Column
     private String username;
 
+    @Column(name = "profile_img", length = 512)
+    private String profileImg;
+
     @Column(nullable = false)
     private boolean verified;
 
