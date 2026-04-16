@@ -49,6 +49,7 @@ class RolePermissionSeederTest {
     );
 
     private static final Set<String> EXPECTED_USER = Set.of(
+            "user.read", "user.update",
             "image.create", "image.read",
             "post.create", "post.read",
             "comment.create",

@@ -43,6 +43,7 @@ public class RolePermissionSeeder implements CommandLineRunner, Ordered {
     );
 
     static final Set<String> USER_PERMISSIONS = Set.of(
+            "user.read", "user.update",
             "image.create", "image.read",
             "post.create", "post.read",
             "comment.create",

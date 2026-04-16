@@ -93,15 +93,22 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
-    @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException ex,
-                                                            HttpServletRequest request) {
+    @ExceptionHandler(InvalidProfileImageException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProfileImage(InvalidProfileImageException ex,
+                                                                     HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
+
 
     @ExceptionHandler(UnknownGenerationModelException.class)
     public ResponseEntity<ErrorResponse> handleUnknownGenerationModel(UnknownGenerationModelException ex,
                                                                       HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException ex,
+                                                            HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
