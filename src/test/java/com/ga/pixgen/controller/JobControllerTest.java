@@ -19,9 +19,11 @@ import com.ga.pixgen.security.JwtService;
 import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
 import com.ga.pixgen.service.PasswordResetService;
+import com.ga.pixgen.service.comments.CommentService;
 import com.ga.pixgen.service.jobs.JobEventBroker;
 import com.ga.pixgen.service.jobs.JobService;
 import com.ga.pixgen.service.jobs.JobSubmission;
+import com.ga.pixgen.service.posts.PostService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -121,6 +122,12 @@ class JobControllerTest {
 
     @MockitoBean
     private JobEventBroker jobEventBroker;
+
+    @MockitoBean
+    private PostService postService;
+
+    @MockitoBean
+    private CommentService commentService;
 
     private User authedUser;
     private String authCookieValue;
