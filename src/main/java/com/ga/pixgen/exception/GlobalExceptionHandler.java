@@ -99,6 +99,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(CommunityValidationException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityValidation(CommunityValidationException ex,
+                                                                   HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
 
     @ExceptionHandler(UnknownGenerationModelException.class)
     public ResponseEntity<ErrorResponse> handleUnknownGenerationModel(UnknownGenerationModelException ex,

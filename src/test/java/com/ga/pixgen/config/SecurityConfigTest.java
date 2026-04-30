@@ -10,6 +10,8 @@ import com.ga.pixgen.repository.TokenRepository;
 import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
+import com.ga.pixgen.service.comments.CommentService;
+import com.ga.pixgen.service.posts.PostService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +79,12 @@ class SecurityConfigTest {
 
     @MockitoBean
     private EmailService emailService;
+
+    @MockitoBean
+    private PostService postService;
+
+    @MockitoBean
+    private CommentService commentService;
 
     @Test
     void securityFilterChainBeanIsExposed() {

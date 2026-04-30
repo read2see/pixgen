@@ -12,6 +12,8 @@ import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
 import com.ga.pixgen.service.PasswordResetService;
+import com.ga.pixgen.service.comments.CommentService;
+import com.ga.pixgen.service.posts.PostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +79,12 @@ class RbacIntegrationTest {
 
     @MockitoBean
     private PasswordResetService passwordResetService;
+
+    @MockitoBean
+    private PostService postService;
+
+    @MockitoBean
+    private CommentService commentService;
 
     @BeforeEach
     void stubUserLookups() {

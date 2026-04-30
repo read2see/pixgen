@@ -11,6 +11,8 @@ import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
 import com.ga.pixgen.service.PasswordResetService;
+import com.ga.pixgen.service.comments.CommentService;
+import com.ga.pixgen.service.posts.PostService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -88,6 +90,12 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private ImageRepository imageRepository;
+
+    @MockitoBean
+    private PostService postService;
+
+    @MockitoBean
+    private CommentService commentService;
 
     @Test
     @WithMockUser

@@ -1,6 +1,5 @@
 package com.ga.pixgen.controller;
 
-import com.ga.pixgen.exception.ResourceNotFoundException;
 import com.ga.pixgen.model.Image;
 import com.ga.pixgen.model.Permission;
 import com.ga.pixgen.model.Role;
@@ -15,8 +14,10 @@ import com.ga.pixgen.service.EmailService;
 import com.ga.pixgen.service.EmailVerificationService;
 import com.ga.pixgen.service.PasswordResetService;
 import com.ga.pixgen.service.images.LocalImageStorage;
+import com.ga.pixgen.service.comments.CommentService;
 import com.ga.pixgen.service.jobs.JobEventBroker;
 import com.ga.pixgen.service.jobs.JobService;
+import com.ga.pixgen.service.posts.PostService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,8 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -117,6 +116,12 @@ class ImageControllerTest {
 
     @MockitoBean
     private JobEventBroker jobEventBroker;
+
+    @MockitoBean
+    private PostService postService;
+
+    @MockitoBean
+    private CommentService commentService;
 
     private User owner;
     private User other;
