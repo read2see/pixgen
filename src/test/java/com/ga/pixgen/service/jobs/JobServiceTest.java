@@ -166,6 +166,46 @@ class JobServiceTest {
     }
 
     @Test
+    void submit_allowsAdminWithoutCredits_andPersistsZeroCreditCost() {
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
+        user.setRole(adminRole);
+        user.setCredits(0);
+        jobsProperties.setCreditsPerImage(5);
+        when(jobRepository.countByUserIdAndStatus(7L, JobStatus.PENDING)).thenReturn(0L);
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        JobSubmission submission = new JobSubmission(
+                "anything", null, null, null, null, null, null, null,
+                "runwayml/stable-diffusion-v1-5");
+
+        Job saved = jobService.submit(user, submission);
+
+        assertThat(saved.getCreditsCost()).isZero();
+        verify(jobRepository).save(any(Job.class));
+    }
+
+    @Test
+    void submit_allowsAdminWithoutCredits_whenRoleNameHasRolePrefix() {
+        Role adminRole = new Role();
+        adminRole.setName("ROLE_admin");
+        user.setRole(adminRole);
+        user.setCredits(0);
+        jobsProperties.setCreditsPerImage(5);
+        when(jobRepository.countByUserIdAndStatus(7L, JobStatus.PENDING)).thenReturn(0L);
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        JobSubmission submission = new JobSubmission(
+                "anything", null, null, null, null, null, null, null,
+                "runwayml/stable-diffusion-v1-5");
+
+        Job saved = jobService.submit(user, submission);
+
+        assertThat(saved.getCreditsCost()).isZero();
+        verify(jobRepository).save(any(Job.class));
+    }
+
+    @Test
     void get_returnsJob_whenActorIsOwner() {
         Job job = newJob(99L, 7L, JobStatus.PENDING);
         when(jobRepository.findById(99L)).thenReturn(Optional.of(job));

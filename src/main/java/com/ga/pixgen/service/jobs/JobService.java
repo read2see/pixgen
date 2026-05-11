@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -65,7 +66,7 @@ public class JobService {
      *     <li>The number of {@code PENDING} jobs the user already has must
      *         be strictly below {@code app.jobs.max-pending-jobs-per-user};
      *         otherwise {@link PendingJobLimitException} is raised.</li>
-     *     <li>The user's credit balance must be at least
+     *     <li>Non-admin users' credit balance must be at least
      *         {@code app.jobs.credits-per-image}; otherwise
      *         {@link InsufficientCreditsException} is raised.</li>
      *     <li>{@code MODEL_ID} must match the configured local model catalog
@@ -85,11 +86,13 @@ public class JobService {
         if (pending >= jobsProperties.getMaxPendingJobsPerUser()) {
             throw new PendingJobLimitException(jobsProperties.getMaxPendingJobsPerUser());
         }
-        int cost = jobsProperties.getCreditsPerImage();
-        Integer balance = user.getCredits();
-        int available = balance == null ? 0 : balance;
-        if (available < cost) {
-            throw new InsufficientCreditsException(cost, available);
+        int cost = isAdmin(user) ? 0 : jobsProperties.getCreditsPerImage();
+        if (cost > 0) {
+            Integer balance = user.getCredits();
+            int available = balance == null ? 0 : balance;
+            if (available < cost) {
+                throw new InsufficientCreditsException(cost, available);
+            }
         }
 
         generationModelCatalog.requireKnownModelId(submission.modelId());
@@ -212,7 +215,20 @@ public class JobService {
         if (actor.getId() != null && actor.getId().equals(job.getUserId())) {
             return true;
         }
-        Role role = actor.getRole();
-        return role != null && PRIVILEGED_ROLES.contains(role.getName());
+        return PRIVILEGED_ROLES.contains(normalizedRoleName(actor));
+    }
+
+    private static boolean isAdmin(User user) {
+        return "ADMIN".equals(normalizedRoleName(user));
+    }
+
+    private static String normalizedRoleName(User user) {
+        Role role = user == null ? null : user.getRole();
+        String name = role == null ? null : role.getName();
+        if (name == null || name.isBlank()) {
+            return "";
+        }
+        String normalized = name.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("ROLE_") ? normalized.substring("ROLE_".length()) : normalized;
     }
 }
