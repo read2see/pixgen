@@ -1,0 +1,1267 @@
+{
+  "name": "PixGen Front-End API Reference",
+  "version": "0.1.0",
+  "sourcePlan": "drafts/front-end-plan-draft.md",
+  "basePath": "/api",
+  "auth": {
+    "strategy": "httpOnlyCookieSession",
+    "frontendStorage": "Do not store JWTs in localStorage or sessionStorage.",
+    "credentials": "include",
+    "currentUserEndpoint": "GET /api/auth/me"
+  },
+  "generationBackend": {
+    "frontendContract": "The front-end always calls the PixGen Spring API. It must not call the internal image service directly.",
+    "simulationToggle": {
+      "property": "app.internal-service-simulation",
+      "true": "Server uses the simulated in-process generation strategy.",
+      "false": "Server delegates generation to the internal service API strategy."
+    },
+    "publicEndpoints": [
+      "GET /api/generation/models",
+      "POST /api/jobs",
+      "GET /api/jobs/{id}",
+      "GET /api/jobs/me",
+      "POST /api/jobs/{id}/cancel",
+      "GET /api/jobs/stream",
+      "GET /api/jobs/{id}/stream",
+      "GET /api/images/{id}/file"
+    ],
+    "internalServiceEndpointsUsedByBackend": [
+      "POST /api/v1/generate",
+      "GET /api/v1/jobs/{job_id}/events",
+      "GET /api/v1/jobs/{job_id}",
+      "DELETE /api/v1/jobs/{job_id}",
+      "GET /api/v1/jobs/{job_id}/image"
+    ],
+    "statusTracking": "Use PixGen SSE endpoints first. Fall back to GET /api/jobs/{id} polling if SSE is unavailable.",
+    "artifactFlow": "The backend downloads the internal service PNG once and stores it locally; the front-end reads generated files through /api/images/{id}/file after the PixGen job succeeds."
+  },
+  "responseConventions": {
+    "timestamps": "ISO-8601 strings",
+    "nullableFields": "Fields omitted by the backend may be treated as null by the front-end.",
+    "pageResponse": {
+      "content": "array",
+      "pageable": "object",
+      "totalElements": "number",
+      "totalPages": "number",
+      "last": "boolean",
+      "first": "boolean",
+      "size": "number",
+      "number": "number",
+      "numberOfElements": "number",
+      "empty": "boolean"
+    },
+    "errorResponse": {
+      "timestamp": "string",
+      "status": "number",
+      "error": "string",
+      "message": "string",
+      "path": "string",
+      "fieldErrors": "object|null"
+    },
+    "handledStatusCodes": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      422,
+      500
+    ]
+  },
+  "enums": {
+    "role": [
+      "USER",
+      "MODERATOR",
+      "ADMIN"
+    ],
+    "jobStatus": [
+      "PENDING",
+      "RUNNING",
+      "SUCCEEDED",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "jobEventType": [
+      "STATUS",
+      "PROGRESS"
+    ],
+    "postStatus": [
+      "DRAFT",
+      "PUBLISHED",
+      "ARCHIVED"
+    ],
+    "postVisibility": [
+      "PUBLIC",
+      "PRIVATE"
+    ],
+    "commentStatus": [
+      "VISIBLE",
+      "HIDDEN",
+      "DELETED"
+    ],
+    "sort": [
+      "createdAt,desc",
+      "createdAt,asc",
+      "updatedAt,desc",
+      "updatedAt,asc",
+      "commentCount,desc"
+    ]
+  },
+  "schemas": {
+    "User": {
+      "id": "number",
+      "email": "string",
+      "username": "string",
+      "verified": "boolean",
+      "enabled": "boolean",
+      "credits": "number",
+      "role": "role",
+      "createdAt": "string",
+      "updatedAt": "string",
+      "deletedAt": "string|null"
+    },
+    "UserStats": {
+      "activeJobs": "number",
+      "generatedImages": "number",
+      "credits": "number"
+    },
+    "IncreaseCreditsRequest": {
+      "amount": "number"
+    },
+    "LoginRequest": {
+      "email": "string",
+      "password": "string"
+    },
+    "RegisterRequest": {
+      "email": "string",
+      "password": "string",
+      "username": "string"
+    },
+    "ForgotPasswordRequest": {
+      "email": "string"
+    },
+    "ResetPasswordRequest": {
+      "token": "uuid",
+      "newPassword": "string"
+    },
+    "ChangePasswordRequest": {
+      "currentPassword": "string",
+      "newPassword": "string"
+    },
+    "GenerationModel": {
+      "modelId": "string",
+      "label": "string"
+    },
+    "CreateJobRequest": {
+      "prompt": "string",
+      "negativePrompt": "string|null",
+      "width": "number|null",
+      "height": "number|null",
+      "numInferenceSteps": "number|null",
+      "guidanceScale": "number|null",
+      "seed": "number|null",
+      "sampler": "string|null",
+      "modelId": "string"
+    },
+    "Job": {
+      "id": "number",
+      "userId": "number",
+      "status": "jobStatus",
+      "prompt": "string",
+      "negativePrompt": "string|null",
+      "width": "number|null",
+      "height": "number|null",
+      "numInferenceSteps": "number|null",
+      "guidanceScale": "number|null",
+      "seed": "number|null",
+      "sampler": "string|null",
+      "modelId": "string",
+      "internalServiceJobId": "string|null",
+      "creditsCost": "number",
+      "progress": "number",
+      "cancelRequested": "boolean",
+      "startedAt": "string|null",
+      "completedAt": "string|null",
+      "errorMessage": "string|null",
+      "queuePosition": "number|null",
+      "estimatedWaitMs": "number|null",
+      "createdAt": "string",
+      "updatedAt": "string"
+    },
+    "JobEvent": {
+      "jobId": "number",
+      "userId": "number",
+      "type": "jobEventType",
+      "status": "jobStatus|null",
+      "progress": "number|null",
+      "message": "string|null",
+      "timestamp": "string"
+    },
+    "Image": {
+      "id": "number",
+      "userId": "number",
+      "jobId": "number|null",
+      "prompt": "string",
+      "negativePrompt": "string|null",
+      "mimeType": "string",
+      "fileSizeBytes": "number",
+      "width": "number",
+      "height": "number",
+      "modelId": "string",
+      "sampler": "string|null",
+      "numInferenceSteps": "number|null",
+      "guidanceScale": "number|null",
+      "seed": "number|null",
+      "scheduler": "string|null",
+      "clipSkip": "number|null",
+      "lorasJson": "string|null",
+      "extrasJson": "string|null",
+      "createdAt": "string",
+      "updatedAt": "string",
+      "fileUrlTemplate": "/api/images/{id}/file"
+    },
+    "Author": {
+      "id": "number",
+      "username": "string",
+      "profileImageUrl": "string|null",
+      "createdAt": "string"
+    },
+    "CreatePostRequest": {
+      "title": "string",
+      "body": "string|null",
+      "visibility": "postVisibility",
+      "imageIds": "number[]"
+    },
+    "Post": {
+      "id": "number",
+      "userId": "number",
+      "author": "Author|null",
+      "authorUsername": "string|null",
+      "username": "string|null",
+      "title": "string",
+      "body": "string|null",
+      "status": "postStatus",
+      "visibility": "postVisibility",
+      "images": "Image[]",
+      "createdAt": "string",
+      "updatedAt": "string"
+    },
+    "CreateCommentRequest": {
+      "parentId": "number|null",
+      "body": "string"
+    },
+    "Comment": {
+      "id": "number",
+      "postId": "number",
+      "userId": "number",
+      "author": "Author|null",
+      "authorUsername": "string|null",
+      "username": "string|null",
+      "parentId": "number|null",
+      "path": "string",
+      "depth": "number",
+      "body": "string",
+      "status": "commentStatus",
+      "createdAt": "string",
+      "updatedAt": "string"
+    }
+  },
+  "frontendComposables": {
+    "useAuthApi": [
+      "auth.me",
+      "auth.login",
+      "auth.logout",
+      "auth.register",
+      "auth.forgotPassword",
+      "auth.resetPassword",
+      "auth.verifyEmail",
+      "auth.sendVerification",
+      "auth.changePassword"
+    ],
+    "useGenerationApi": [
+      "generation.listModels",
+      "jobs.create"
+    ],
+    "useJobsApi": [
+      "jobs.listMine",
+      "jobs.get",
+      "jobs.cancel",
+      "jobs.streamMine",
+      "jobs.streamOne"
+    ],
+    "useImagesApi": [
+      "images.listMine",
+      "images.get",
+      "images.file"
+    ],
+    "usePostsApi": [
+      "posts.feed",
+      "posts.get",
+      "posts.create",
+      "posts.updateOwn",
+      "posts.deleteOwn"
+    ],
+    "useCommentsApi": [
+      "comments.list",
+      "comments.create",
+      "comments.updateOwn",
+      "comments.deleteOwn"
+    ],
+    "useUsersApi": [
+      "users.me",
+      "users.stats",
+      "users.uploadProfileImage",
+      "users.profileImage",
+      "users.increaseCredits",
+      "users.publicProfile",
+      "users.updateProfile"
+    ],
+    "useAdminApi": [
+      "admin.ping",
+      "admin.overview",
+      "admin.users",
+      "admin.posts",
+      "admin.comments",
+      "admin.images",
+      "admin.jobs",
+      "admin.settings"
+    ],
+    "useModeratorApi": [
+      "moderator.posts",
+      "moderator.comments",
+      "moderator.images"
+    ]
+  },
+  "endpoints": [
+    {
+      "id": "auth.register",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/register",
+      "authRequired": false,
+      "request": "RegisterRequest",
+      "response": "User",
+      "successStatus": 201,
+      "frontEndPages": [
+        "/register"
+      ]
+    },
+    {
+      "id": "auth.login",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "authRequired": false,
+      "request": "LoginRequest",
+      "response": "User",
+      "successStatus": 200,
+      "sideEffects": [
+        "Sets HTTP-only auth cookie"
+      ],
+      "frontEndPages": [
+        "/login"
+      ]
+    },
+    {
+      "id": "auth.logout",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "authRequired": true,
+      "request": null,
+      "response": null,
+      "successStatus": 204,
+      "sideEffects": [
+        "Clears auth cookie"
+      ],
+      "frontEndPages": [
+        "authenticated layouts"
+      ]
+    },
+    {
+      "id": "auth.me",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "authRequired": true,
+      "request": null,
+      "response": "User",
+      "successStatus": 200,
+      "frontEndPages": [
+        "auth store",
+        "route middleware",
+        "header user menu"
+      ]
+    },
+    {
+      "id": "auth.sendVerification",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/send-verification",
+      "authRequired": false,
+      "request": {
+        "email": "string"
+      },
+      "response": null,
+      "successStatus": 202,
+      "frontEndPages": [
+        "/resend-verification",
+        "/settings"
+      ]
+    },
+    {
+      "id": "auth.verifyEmail",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/auth/verify-email",
+      "authRequired": false,
+      "query": {
+        "token": "uuid"
+      },
+      "request": null,
+      "response": {
+        "verified": "boolean"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/verify-email"
+      ]
+    },
+    {
+      "id": "auth.forgotPassword",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "authRequired": false,
+      "request": "ForgotPasswordRequest",
+      "response": null,
+      "successStatus": 202,
+      "frontEndPages": [
+        "/forgot-password"
+      ]
+    },
+    {
+      "id": "auth.resetPassword",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/reset-password",
+      "authRequired": false,
+      "request": "ResetPasswordRequest",
+      "response": {
+        "reset": "boolean"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/reset-password"
+      ]
+    },
+    {
+      "id": "auth.changePassword",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/auth/change-password",
+      "authRequired": true,
+      "permission": "authenticated user",
+      "request": "ChangePasswordRequest",
+      "response": null,
+      "successStatus": 204,
+      "frontEndPages": [
+        "/settings/security"
+      ]
+    },
+    {
+      "id": "generation.listModels",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/generation/models",
+      "authRequired": true,
+      "permission": "job.create",
+      "request": null,
+      "response": "GenerationModel[]",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard/generate"
+      ]
+    },
+    {
+      "id": "jobs.create",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/jobs",
+      "authRequired": true,
+      "permission": "job.create",
+      "request": "CreateJobRequest",
+      "response": "Job",
+      "successStatus": 201,
+      "sideEffects": [
+        "Enqueues a PixGen job.",
+        "Server selects the simulated or internal-service generation strategy from app.internal-service-simulation.",
+        "When internal-service mode is enabled, the server submits POST /api/v1/generate to the internal service and mirrors progress back through PixGen job status/SSE."
+      ],
+      "frontEndPages": [
+        "/dashboard/generate"
+      ]
+    },
+    {
+      "id": "jobs.listMine",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/jobs/me",
+      "authRequired": true,
+      "permission": "job.read",
+      "query": {
+        "status": "jobStatus|null"
+      },
+      "request": null,
+      "response": "Job[]",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard",
+        "/dashboard/jobs"
+      ]
+    },
+    {
+      "id": "jobs.get",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/jobs/{id}",
+      "authRequired": true,
+      "permission": "job.read",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "Job",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard/jobs/[id]"
+      ]
+    },
+    {
+      "id": "jobs.cancel",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/jobs/{id}/cancel",
+      "authRequired": true,
+      "permission": "job.cancel",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": null,
+      "successStatus": 204,
+      "sideEffects": [
+        "Attempts to cancel the PixGen job.",
+        "For PENDING jobs, cancellation is applied before the worker starts.",
+        "For RUNNING jobs, the worker observes the cancel request and transitions the job to CANCELLED when possible.",
+        "When internal-service mode is enabled, the backend also attempts DELETE /api/v1/jobs/{job_id} against the internal service."
+      ],
+      "clientNotes": [
+        "Treat 204 as cancellation requested, not as proof that the terminal CANCELLED event has already arrived.",
+        "After calling cancel, continue listening to jobs.streamOne/jobs.streamMine or poll jobs.get until status is CANCELLED, FAILED, or SUCCEEDED."
+      ],
+      "frontEndPages": [
+        "/dashboard/jobs",
+        "/dashboard/jobs/[id]"
+      ]
+    },
+    {
+      "id": "jobs.streamMine",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/jobs/stream",
+      "authRequired": true,
+      "permission": "job.read",
+      "transport": "serverSentEvents",
+      "request": null,
+      "response": "JobEvent",
+      "successStatus": 200,
+      "clientNotes": [
+        "Primary stream for job progress updates across the current user's jobs.",
+        "Use jobs.get polling as a fallback if the EventSource connection drops."
+      ],
+      "frontEndPages": [
+        "/dashboard/jobs",
+        "/dashboard/generate"
+      ]
+    },
+    {
+      "id": "jobs.streamOne",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/jobs/{id}/stream",
+      "authRequired": true,
+      "permission": "job.read",
+      "transport": "serverSentEvents",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "JobEvent",
+      "successStatus": 200,
+      "clientNotes": [
+        "Primary stream for a single job's progress and terminal status.",
+        "Use jobs.get polling as a fallback if the EventSource connection drops."
+      ],
+      "frontEndPages": [
+        "/dashboard/jobs/[id]",
+        "/dashboard/generate"
+      ]
+    },
+    {
+      "id": "images.listMine",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/images/me",
+      "authRequired": true,
+      "permission": "image.read",
+      "request": null,
+      "response": "Image[]",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard",
+        "/dashboard/images",
+        "/dashboard/posts/create"
+      ]
+    },
+    {
+      "id": "images.get",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/images/{id}",
+      "authRequired": true,
+      "permission": "image.read",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "Image",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard/images"
+      ]
+    },
+    {
+      "id": "images.file",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/images/{id}/file",
+      "authRequired": true,
+      "permission": "image.read",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "binary image resource",
+      "successStatus": 200,
+      "headers": {
+        "Cache-Control": "private, max-age=3600"
+      },
+      "frontEndPages": [
+        "/dashboard/images",
+        "/dashboard/posts/create"
+      ]
+    },
+    {
+      "id": "posts.feed",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/posts",
+      "authRequired": false,
+      "query": {
+        "page": "number",
+        "size": "number",
+        "sort": "sort"
+      },
+      "request": null,
+      "response": "Page<Post>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/"
+      ]
+    },
+    {
+      "id": "posts.get",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/posts/{id}",
+      "authRequired": false,
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "Post",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/posts/[id]"
+      ]
+    },
+    {
+      "id": "posts.create",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/posts",
+      "authRequired": true,
+      "permission": "post.create",
+      "request": "CreatePostRequest",
+      "response": "Post",
+      "successStatus": 201,
+      "frontEndPages": [
+        "/dashboard/posts/create",
+        "/dashboard/images"
+      ]
+    },
+    {
+      "id": "comments.list",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/posts/{postId}/comments",
+      "authRequired": false,
+      "pathParams": {
+        "postId": "number"
+      },
+      "request": null,
+      "response": "Comment[]",
+      "successStatus": 200,
+      "notes": "Comments are returned in path order for threaded rendering.",
+      "frontEndPages": [
+        "/posts/[id]"
+      ]
+    },
+    {
+      "id": "comments.create",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/posts/{postId}/comments",
+      "authRequired": true,
+      "permission": "comment.create",
+      "pathParams": {
+        "postId": "number"
+      },
+      "request": "CreateCommentRequest",
+      "response": "Comment",
+      "successStatus": 201,
+      "frontEndPages": [
+        "/posts/[id]"
+      ]
+    },
+    {
+      "id": "users.me",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/users/me",
+      "authRequired": true,
+      "permission": "user.read",
+      "request": null,
+      "response": {
+        "name": "string"
+      },
+      "successStatus": 200,
+      "notes": "Prefer auth.me for full current-user profile data.",
+      "frontEndPages": [
+        "/settings",
+        "/dashboard"
+      ]
+    },
+    {
+      "id": "users.stats",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/users/me/stats",
+      "authRequired": true,
+      "permission": "user.read",
+      "request": null,
+      "response": "UserStats",
+      "successStatus": 200,
+      "notes": "activeJobs counts PENDING and RUNNING jobs for the current user.",
+      "frontEndPages": [
+        "/dashboard",
+        "/dashboard/generate",
+        "header user menu"
+      ]
+    },
+    {
+      "id": "users.uploadProfileImage",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/users/me/profile-image",
+      "authRequired": true,
+      "permission": "user.update",
+      "contentType": "multipart/form-data",
+      "request": {
+        "file": "File"
+      },
+      "response": {
+        "profile_img": "string"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/settings/profile"
+      ]
+    },
+    {
+      "id": "users.profileImage",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/users/me/profile-image",
+      "authRequired": true,
+      "permission": "user.read",
+      "request": null,
+      "response": "binary image resource",
+      "successStatus": 200,
+      "headers": {
+        "Cache-Control": "private, max-age=3600"
+      },
+      "frontEndPages": [
+        "/settings/profile",
+        "header user menu"
+      ]
+    },
+    {
+      "id": "users.increaseCredits",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/users/{id}/credits/increase",
+      "authRequired": true,
+      "permission": "credits.grant",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": "IncreaseCreditsRequest",
+      "response": "User",
+      "successStatus": 200,
+      "sideEffects": [
+        "Adds the requested amount to the target user's credit balance."
+      ],
+      "frontEndPages": [
+        "/admin/users",
+        "/admin/users/[id]"
+      ]
+    },
+    {
+      "id": "admin.ping",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/ping",
+      "authRequired": true,
+      "role": "ADMIN",
+      "request": null,
+      "response": {
+        "pong": "boolean"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin"
+      ]
+    },
+    {
+      "id": "posts.updateOwn",
+      "status": "planned",
+      "method": "PATCH",
+      "path": "/api/posts/{id}",
+      "authRequired": true,
+      "permission": "post.update",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": {
+        "title": "string|null",
+        "body": "string|null",
+        "visibility": "postVisibility|null",
+        "imageIds": "number[]|null"
+      },
+      "response": "Post",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/dashboard/posts/[id]/edit"
+      ]
+    },
+    {
+      "id": "posts.deleteOwn",
+      "status": "planned",
+      "method": "DELETE",
+      "path": "/api/posts/{id}",
+      "authRequired": true,
+      "permission": "post.delete",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": null,
+      "successStatus": 204,
+      "frontEndPages": [
+        "/dashboard/posts"
+      ]
+    },
+    {
+      "id": "comments.updateOwn",
+      "status": "planned",
+      "method": "PATCH",
+      "path": "/api/posts/{postId}/comments/{commentId}",
+      "authRequired": true,
+      "permission": "comment.update",
+      "pathParams": {
+        "postId": "number",
+        "commentId": "number"
+      },
+      "request": {
+        "body": "string"
+      },
+      "response": "Comment",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/posts/[id]",
+        "/dashboard/comments"
+      ]
+    },
+    {
+      "id": "comments.deleteOwn",
+      "status": "planned",
+      "method": "DELETE",
+      "path": "/api/posts/{postId}/comments/{commentId}",
+      "authRequired": true,
+      "permission": "comment.delete",
+      "pathParams": {
+        "postId": "number",
+        "commentId": "number"
+      },
+      "request": null,
+      "response": null,
+      "successStatus": 204,
+      "frontEndPages": [
+        "/posts/[id]",
+        "/dashboard/comments"
+      ]
+    },
+    {
+      "id": "users.publicProfile",
+      "status": "planned",
+      "method": "GET",
+      "path": "/api/users/{id}",
+      "authRequired": false,
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": {
+        "id": "number",
+        "username": "string",
+        "profileImageUrl": "string|null",
+        "createdAt": "string"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/users/[id]"
+      ]
+    },
+    {
+      "id": "users.updateProfile",
+      "status": "planned",
+      "method": "PATCH",
+      "path": "/api/users/me",
+      "authRequired": true,
+      "permission": "user.update",
+      "request": {
+        "username": "string|null"
+      },
+      "response": "User",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/settings/profile"
+      ]
+    },
+    {
+      "id": "admin.overview",
+      "status": "planned",
+      "method": "GET",
+      "path": "/api/admin/overview",
+      "authRequired": true,
+      "role": "ADMIN",
+      "request": null,
+      "response": {
+        "totalUsers": "number",
+        "totalPosts": "number",
+        "totalImages": "number",
+        "activeJobs": "number",
+        "failedJobs": "number",
+        "recentModerationActions": "array"
+      },
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin"
+      ]
+    },
+    {
+      "id": "admin.users",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "authRequired": true,
+      "role": "ADMIN",
+      "query": {
+        "q": "string|null",
+        "role": "role|null",
+        "enabled": "boolean|null",
+        "deleted": "boolean|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<User>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/users"
+      ]
+    },
+    {
+      "id": "admin.suspendUser",
+      "status": "implemented",
+      "method": "PATCH",
+      "path": "/api/admin/users/{id}/suspend",
+      "authRequired": true,
+      "permission": "user.delete",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "User",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/users"
+      ]
+    },
+    {
+      "id": "admin.softDeleteUser",
+      "status": "implemented",
+      "method": "DELETE",
+      "path": "/api/admin/users/{id}",
+      "authRequired": true,
+      "permission": "user.delete",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": null,
+      "response": "User",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/users"
+      ]
+    },
+    {
+      "id": "admin.changeUserRole",
+      "status": "implemented",
+      "method": "PATCH",
+      "path": "/api/admin/users/{id}/role",
+      "authRequired": true,
+      "permission": "role.manage",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": {
+        "role": "USER|MODERATOR|ADMIN"
+      },
+      "response": "User",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/users"
+      ]
+    },
+    {
+      "id": "admin.jobs",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/jobs",
+      "authRequired": true,
+      "role": "ADMIN",
+      "query": {
+        "status": "jobStatus|null",
+        "userId": "number|null",
+        "from": "string|null",
+        "to": "string|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Job>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/jobs"
+      ]
+    },
+    {
+      "id": "admin.posts",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/posts",
+      "authRequired": true,
+      "role": "ADMIN",
+      "query": {
+        "status": "postStatus|null",
+        "visibility": "postVisibility|null",
+        "authorUsername": "string|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Post>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/posts"
+      ]
+    },
+    {
+      "id": "admin.comments",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/comments",
+      "authRequired": true,
+      "role": "ADMIN",
+      "query": {
+        "status": "commentStatus|null",
+        "authorUsername": "string|null",
+        "postId": "number|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Comment>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/comments"
+      ]
+    },
+    {
+      "id": "admin.images",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/admin/images",
+      "authRequired": true,
+      "role": "ADMIN",
+      "query": {
+        "userId": "number|null",
+        "jobId": "number|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Image>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/admin/images"
+      ]
+    },
+    {
+      "id": "moderator.posts",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/moderator/posts",
+      "authRequired": true,
+      "role": "MODERATOR|ADMIN",
+      "query": {
+        "status": "postStatus|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Post>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/moderator/posts"
+      ]
+    },
+    {
+      "id": "moderator.hidePost",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/moderator/posts/{id}/hide",
+      "authRequired": true,
+      "role": "MODERATOR|ADMIN",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": {
+        "reason": "string"
+      },
+      "response": "Post",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/moderator/posts",
+        "/admin/posts"
+      ]
+    },
+    {
+      "id": "moderator.comments",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/moderator/comments",
+      "authRequired": true,
+      "role": "MODERATOR|ADMIN",
+      "query": {
+        "status": "commentStatus|null",
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Comment>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/moderator/comments"
+      ]
+    },
+    {
+      "id": "moderator.hideComment",
+      "status": "implemented",
+      "method": "POST",
+      "path": "/api/moderator/comments/{id}/hide",
+      "authRequired": true,
+      "role": "MODERATOR|ADMIN",
+      "pathParams": {
+        "id": "number"
+      },
+      "request": {
+        "reason": "string"
+      },
+      "response": "Comment",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/moderator/comments",
+        "/admin/comments"
+      ]
+    },
+    {
+      "id": "moderator.images",
+      "status": "implemented",
+      "method": "GET",
+      "path": "/api/moderator/images",
+      "authRequired": true,
+      "role": "MODERATOR|ADMIN",
+      "query": {
+        "sort": "updatedAt,desc|updatedAt,asc",
+        "page": "number",
+        "size": "number"
+      },
+      "request": null,
+      "response": "Page<Image>",
+      "successStatus": 200,
+      "frontEndPages": [
+        "/moderator/images"
+      ]
+    }
+  ],
+  "frontendNotes": [
+    "Use credentials: include for all non-public requests and safe current-user checks.",
+    "Treat endpoints marked planned as contract targets for future backend work, not as currently available routes.",
+    "Use GET /api/auth/me as the canonical full user session endpoint.",
+    "For image display, build object URLs or direct img src values from the file endpoints instead of relying on filesystem paths.",
+    "For job status, prefer SSE streams when available and fall back to polling GET /api/jobs/{id}.",
+    "Guest users can read public posts and comments but must be redirected or prompted before creating posts, comments, jobs, or profile changes."
+  ]
+}
