@@ -192,7 +192,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * without stomping on rows owned by a different live instance.
      * Returns the number of rows reset.
      */
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE jobs
                SET status = 'PENDING',
