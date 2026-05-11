@@ -4,6 +4,7 @@ import com.ga.pixgen.dto.ErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -22,6 +23,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex,
                                                           HttpServletRequest request) {
+        if (acceptsEventStream(request)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).<ErrorResponse>build();
+        }
         Map<String, String> fieldErrors = new HashMap<>();
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             fieldErrors.merge(
@@ -53,6 +57,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
                                                             HttpServletRequest request) {
+        if (acceptsEventStream(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return build(HttpStatus.FORBIDDEN, "Access denied", request);
     }
 
@@ -133,11 +140,19 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ErrorResponse> build(HttpStatus status,
                                                 String message,
                                                 HttpServletRequest request) {
+        if (acceptsEventStream(request)) {
+            return ResponseEntity.status(status).<ErrorResponse>build();
+        }
         ErrorResponse body = ErrorResponse.of(
                 status.value(),
                 status.getReasonPhrase(),
                 message,
                 request.getRequestURI());
         return ResponseEntity.status(status).body(body);
+    }
+
+    private boolean acceptsEventStream(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
     }
 }

@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -238,6 +239,15 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.path").value("/test-errors/boom"));
     }
 
+    @Test
+    @WithMockUser
+    void eventStreamException_returnsStatusOnly_withoutJsonBody() throws Exception {
+        mockMvc.perform(get("/test-errors/stream-boom")
+                        .accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().string(""));
+    }
+
     @TestConfiguration
     static class TestControllerConfig {
         @Bean
@@ -313,6 +323,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/boom")
         String boom() {
             throw new RuntimeException("kaboom");
+        }
+
+        @GetMapping(value = "/stream-boom", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        String streamBoom() {
+            throw new RuntimeException("stream kaboom");
         }
     }
 
