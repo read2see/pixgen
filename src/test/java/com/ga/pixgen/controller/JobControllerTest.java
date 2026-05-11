@@ -1,6 +1,7 @@
 package com.ga.pixgen.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.exception.InsufficientCreditsException;
 import com.ga.pixgen.exception.JobNotCancellableException;
 import com.ga.pixgen.exception.JobNotFoundException;
@@ -252,6 +253,7 @@ class JobControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(123))
                 .andExpect(jsonPath("$.status").value("RUNNING"))
+                .andExpect(jsonPath("$.internalServiceJobId").value("internal-job-123"))
                 .andExpect(jsonPath("$.userId").value(authedUser.getId()));
     }
 
@@ -378,7 +380,8 @@ class JobControllerTest {
     void streamJob_registersBrokerEmitterScopedToJobId_afterOwnershipCheck() throws Exception {
         Job job = sampleJob(55L, authedUser.getId(), JobStatus.RUNNING);
         when(jobService.get(eq(55L), eq(authedUser))).thenReturn(job);
-        when(jobEventBroker.register(authedUser.getId(), 55L)).thenReturn(new SseEmitter(60_000L));
+        when(jobEventBroker.register(eq(authedUser.getId()), eq(55L), any(JobEventDto.class)))
+                .thenReturn(new SseEmitter(60_000L));
 
         mockMvc.perform(get("/api/jobs/55/stream")
                         .cookie(authCookie())
@@ -386,7 +389,7 @@ class JobControllerTest {
                 .andExpect(request().asyncStarted());
 
         verify(jobService).get(eq(55L), eq(authedUser));
-        verify(jobEventBroker).register(authedUser.getId(), 55L);
+        verify(jobEventBroker).register(eq(authedUser.getId()), eq(55L), any(JobEventDto.class));
     }
 
     private Cookie authCookie() {
@@ -407,6 +410,9 @@ class JobControllerTest {
         job.setSeed(42L);
         job.setSampler("euler-a");
         job.setModelId("runwayml/stable-diffusion-v1-5");
+        if (status == JobStatus.RUNNING) {
+            job.setInternalServiceJobId("internal-job-123");
+        }
         job.setCreditsCost(1);
         job.setProgress(status == JobStatus.SUCCEEDED ? 100 : 0);
         Instant now = Instant.parse("2026-04-13T12:00:00Z");

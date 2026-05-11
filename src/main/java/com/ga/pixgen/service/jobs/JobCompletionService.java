@@ -40,7 +40,7 @@ public class JobCompletionService {
     /**
      * Run the success-completion critical section for {@code job} and
      * its produced {@code stored} artifact. Returns {@code true} when
-     * credits were deducted and the row was flipped to {@code SUCCEEDED};
+     * credits were deducted (or no charge was required) and the row was flipped to {@code SUCCEEDED};
      * {@code false} when the conditional credit {@code UPDATE} returned
      * zero rows — the worker treats that as the {@code INSUFFICIENT_CREDITS}
      * failure path.
@@ -51,9 +51,12 @@ public class JobCompletionService {
      */
     @Transactional
     public boolean completeSuccess(Job job, StoredImage stored) {
-        int rows = userRepository.deductCreditsIfSufficient(job.getUserId(), job.getCreditsCost());
-        if (rows == 0) {
-            return false;
+        int cost = job.getCreditsCost() == null ? 0 : job.getCreditsCost();
+        if (cost > 0) {
+            int rows = userRepository.deductCreditsIfSufficient(job.getUserId(), cost);
+            if (rows == 0) {
+                return false;
+            }
         }
         imageRepository.save(buildImage(job, stored));
         jobRepository.markSucceeded(job.getId());

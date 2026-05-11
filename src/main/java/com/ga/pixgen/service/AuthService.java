@@ -20,6 +20,7 @@ import java.util.Optional;
 public class AuthService {
 
     private static final String DEFAULT_ROLE_NAME = "USER";
+    private static final int DEFAULT_USER_CREDITS = 50;
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -41,7 +42,7 @@ public class AuthService {
         user.setRole(defaultRole);
         user.setVerified(false);
         user.setEnabled(true);
-        user.setCredits(0);
+        user.setCredits(DEFAULT_USER_CREDITS);
         return userRepository.save(user);
     }
 

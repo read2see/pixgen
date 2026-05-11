@@ -19,7 +19,13 @@ import java.util.concurrent.Semaphore;
  */
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties({JobsProperties.class, ImagesProperties.class, ProfileImagesProperties.class})
+@EnableConfigurationProperties({
+        AppProperties.class,
+        JobsProperties.class,
+        ImagesProperties.class,
+        InternalServiceProperties.class,
+        ProfileImagesProperties.class
+})
 @RequiredArgsConstructor
 public class JobExecutorConfig {
 

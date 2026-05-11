@@ -14,6 +14,9 @@ import java.util.List;
 public record PostResponse(
         Long id,
         Long userId,
+        AuthorResponse author,
+        String authorUsername,
+        String username,
         String title,
         String body,
         PostStatus status,
@@ -23,10 +26,29 @@ public record PostResponse(
         Instant updatedAt
 ) {
 
+    public PostResponse(Long id,
+                        Long userId,
+                        String title,
+                        String body,
+                        PostStatus status,
+                        PostVisibility visibility,
+                        List<ImageResponse> images,
+                        Instant createdAt,
+                        Instant updatedAt) {
+        this(id, userId, null, null, null, title, body, status, visibility, images, createdAt, updatedAt);
+    }
+
     public static PostResponse fromEntity(Post post, List<PostImage> images) {
+        return fromEntity(post, images, null);
+    }
+
+    public static PostResponse fromEntity(Post post, List<PostImage> images, AuthorResponse author) {
         return new PostResponse(
                 post.getId(),
                 post.getUserId(),
+                author,
+                author != null ? author.username() : null,
+                author != null ? author.username() : null,
                 post.getTitle(),
                 post.getBody(),
                 post.getStatus(),

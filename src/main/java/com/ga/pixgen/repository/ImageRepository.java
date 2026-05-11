@@ -2,6 +2,7 @@ package com.ga.pixgen.repository;
 
 import com.ga.pixgen.model.Image;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,9 +14,11 @@ import java.util.Optional;
  * in a later branch.
  */
 @Repository
-public interface ImageRepository extends JpaRepository<Image, Long> {
+public interface ImageRepository extends JpaRepository<Image, Long>, JpaSpecificationExecutor<Image> {
 
     Optional<Image> findByJobId(Long jobId);
 
     List<Image> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    long countByUserId(Long userId);
 }

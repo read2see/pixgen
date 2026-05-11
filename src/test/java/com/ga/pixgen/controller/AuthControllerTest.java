@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -124,7 +125,8 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.username").value("alice"));
+                .andExpect(jsonPath("$.username").value("alice"))
+                .andExpect(jsonPath("$.credits").value(50));
 
         verify(emailVerificationService).issueToken("alice@example.com");
     }
@@ -153,12 +155,13 @@ class AuthControllerTest {
     }
 
     @Test
-    void verifyEmail_returns200_withVerifiedTrue_onHappyPath() throws Exception {
+    void verifyEmail_redirectsToFrontendDashboard_onHappyPath() throws Exception {
         UUID token = UUID.randomUUID();
 
         mockMvc.perform(get("/api/auth/verify-email").param("token", token.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.verified").value(true));
+                .andExpect(status().isFound())
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION))
+                        .isEqualTo("http://localhost:3000/dashboard"));
 
         verify(emailVerificationService).verify(eq(token));
     }
@@ -281,6 +284,28 @@ class AuthControllerTest {
                 .andExpect(status().isAccepted());
 
         verify(passwordResetService).requestReset("ghost@example.com");
+    }
+
+    @Test
+    void resetPasswordForm_redirectsToFrontendWithToken_whenTokenIsValid() throws Exception {
+        UUID token = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/auth/reset-password").param("token", token.toString()))
+                .andExpect(status().isFound())
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION))
+                        .isEqualTo("http://localhost:3000/reset-password?token=" + token));
+
+        verify(passwordResetService).validateResetToken(token);
+    }
+
+    @Test
+    void resetPasswordForm_returns400_whenTokenIsInvalid() throws Exception {
+        UUID token = UUID.randomUUID();
+        doThrow(new InvalidTokenException("invalid"))
+                .when(passwordResetService).validateResetToken(token);
+
+        mockMvc.perform(get("/api/auth/reset-password").param("token", token.toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

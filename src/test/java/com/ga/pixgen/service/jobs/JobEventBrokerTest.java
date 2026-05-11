@@ -192,6 +192,32 @@ class JobEventBrokerTest {
     }
 
     @Test
+    void register_withInitialEvent_sendsHeartbeatAndSnapshotToNewEmitterOnly() throws Exception {
+        SseEmitter existing = mock(SseEmitter.class);
+        SseEmitter joining = mock(SseEmitter.class);
+        broker.register(existing, 7L, 101L);
+
+        broker.register(joining, 7L, 101L,
+                JobEventDto.snapshot(101L, 7L, JobStatus.RUNNING, 45, null));
+
+        verify(existing, never()).send(any(SseEmitter.SseEventBuilder.class));
+        verify(joining, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void publishHeartbeats_sendsKeepaliveToAllRegisteredEmitters() throws Exception {
+        SseEmitter all = mock(SseEmitter.class);
+        SseEmitter filtered = mock(SseEmitter.class);
+        broker.register(all, 7L, null);
+        broker.register(filtered, 7L, 101L);
+
+        broker.publishHeartbeats();
+
+        verify(all, times(1)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(filtered, times(1)).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
     void register_publicOverloads_createOwnEmitter() {
         SseEmitter all = broker.register(7L);
         SseEmitter forJob = broker.register(7L, 555L);

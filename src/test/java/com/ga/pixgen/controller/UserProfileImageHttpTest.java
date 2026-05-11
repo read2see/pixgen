@@ -1,5 +1,6 @@
 package com.ga.pixgen.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ga.pixgen.model.Permission;
 import com.ga.pixgen.model.Role;
 import com.ga.pixgen.model.User;
@@ -35,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,6 +46,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -71,6 +74,7 @@ class UserProfileImageHttpTest {
 
     private static final String OWNER_EMAIL = "owner@pixgen.local";
     private static final String NO_UPDATE_EMAIL = "readonly@pixgen.local";
+    private static final String CREDIT_GRANTOR_EMAIL = "grantor@pixgen.local";
     private static final byte[] PNG_BYTES = new byte[]{
             (byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n',
             0x00, 0x00, 0x00, 0x0D, 'I', 'H', 'D', 'R'
@@ -84,6 +88,8 @@ class UserProfileImageHttpTest {
 
     @Autowired
     private ProfileImageStorage profileImageStorage;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean
     private UserRepository userRepository;
@@ -123,14 +129,17 @@ class UserProfileImageHttpTest {
 
     private User owner;
     private User readOnlyProfile;
+    private User creditGrantor;
 
     @BeforeEach
     void setUp() {
         owner = userWithPermissions(OWNER_EMAIL, 1L, "USER",
                 "user.read", "user.update");
         readOnlyProfile = userWithPermissions(NO_UPDATE_EMAIL, 2L, "USER", "user.read");
+        creditGrantor = userWithPermissions(CREDIT_GRANTOR_EMAIL, 3L, "ADMIN", "credits.grant");
         when(userRepository.findByEmail(OWNER_EMAIL)).thenReturn(Optional.of(owner));
         when(userRepository.findByEmail(NO_UPDATE_EMAIL)).thenReturn(Optional.of(readOnlyProfile));
+        when(userRepository.findByEmail(CREDIT_GRANTOR_EMAIL)).thenReturn(Optional.of(creditGrantor));
         when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -234,6 +243,49 @@ class UserProfileImageHttpTest {
                         .file(part)
                         .cookie(authCookie(OWNER_EMAIL)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void stats_returnsActiveJobsGeneratedImagesAndCredits() throws Exception {
+        when(jobRepository.countActiveByUser(1L)).thenReturn(2L);
+        when(imageRepository.countByUserId(1L)).thenReturn(7L);
+
+        mockMvc.perform(get("/api/users/me/stats")
+                        .cookie(authCookie(OWNER_EMAIL)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeJobs").value(2))
+                .andExpect(jsonPath("$.generatedImages").value(7))
+                .andExpect(jsonPath("$.credits").value(10));
+    }
+
+    @Test
+    void stats_returns403_whenCallerLacksUserRead() throws Exception {
+        User noRead = userWithPermissions("noread@pixgen.local", 4L, "USER", "user.update");
+        when(userRepository.findByEmail(noRead.getEmail())).thenReturn(Optional.of(noRead));
+
+        mockMvc.perform(get("/api/users/me/stats")
+                        .cookie(authCookie(noRead.getEmail())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void increaseCredits_returnsUpdatedUser_whenCallerCanGrantCredits() throws Exception {
+        mockMvc.perform(post("/api/users/1/credits/increase")
+                        .cookie(authCookie(CREDIT_GRANTOR_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 15))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.credits").value(25));
+    }
+
+    @Test
+    void increaseCredits_returns403_whenCallerLacksGrantPermission() throws Exception {
+        mockMvc.perform(post("/api/users/1/credits/increase")
+                        .cookie(authCookie(OWNER_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 15))))
+                .andExpect(status().isForbidden());
     }
 
     private void assertOwnerHasProfileImageOnDisk() throws IOException {

@@ -1,12 +1,12 @@
 package com.ga.pixgen.controller;
 
 import com.ga.pixgen.dto.CreatePostRequest;
+import com.ga.pixgen.dto.PageResponse;
 import com.ga.pixgen.dto.PostResponse;
 import com.ga.pixgen.security.CustomUserDetails;
 import com.ga.pixgen.service.posts.PostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -38,9 +38,9 @@ public class PostController {
     }
 
     @GetMapping
-    public Page<PostResponse> feed(@PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC)
-                                   Pageable pageable) {
-        return postService.feed(pageable);
+    public PageResponse<PostResponse> feed(@PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC)
+                                           Pageable pageable) {
+        return PageResponse.from(postService.feed(pageable));
     }
 
     @GetMapping("/{id}")

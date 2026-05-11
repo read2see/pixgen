@@ -35,7 +35,7 @@ import java.util.function.IntConsumer;
  * propagates so a cancelled job leaves no orphan files on disk.</p>
  */
 @Component
-public class StubImageGenerator implements ImageGenerator {
+public class StubImageGenerator implements ImageGenerationStrategy {
 
     /** Number of progress ticks across a single run; matches the plan's "every ~10%". */
     private static final int PROGRESS_TICKS = 10;

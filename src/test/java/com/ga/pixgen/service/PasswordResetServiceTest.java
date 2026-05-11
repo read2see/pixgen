@@ -171,6 +171,28 @@ class PasswordResetServiceTest {
         verify(tokenRepository, never()).save(any());
     }
 
+    @Test
+    void validateResetToken_acceptsValidPasswordResetToken_withoutConsumingIt() {
+        Token token = newValidToken("alice@example.com", TokenType.PASSWORD_RESET);
+        when(tokenRepository.findById(token.getId())).thenReturn(Optional.of(token));
+
+        service.validateResetToken(token.getId());
+
+        assertThat(token.isUsed()).isFalse();
+        verify(tokenRepository, never()).save(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void validateResetToken_throwsExpired_whenTokenIsExpired() {
+        Token expired = newValidToken("alice@example.com", TokenType.PASSWORD_RESET);
+        expired.setExpiresAt(Instant.now().minus(1, ChronoUnit.MINUTES));
+        when(tokenRepository.findById(expired.getId())).thenReturn(Optional.of(expired));
+
+        assertThatThrownBy(() -> service.validateResetToken(expired.getId()))
+                .isInstanceOf(ExpiredTokenException.class);
+    }
+
     private Token newValidToken(String email, TokenType type) {
         Token token = new Token();
         token.setId(UUID.randomUUID());

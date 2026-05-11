@@ -7,6 +7,7 @@ import com.ga.pixgen.dto.RegisterRequest;
 import com.ga.pixgen.dto.ResetPasswordRequest;
 import com.ga.pixgen.dto.SendVerificationRequest;
 import com.ga.pixgen.dto.UserResponse;
+import com.ga.pixgen.config.FrontendProperties;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.security.CookieFactory;
 import com.ga.pixgen.security.CustomUserDetails;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.UUID;
 
@@ -45,6 +47,7 @@ public class AuthController {
     private final CookieFactory cookieFactory;
     private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
+    private final FrontendProperties frontendProperties;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -61,15 +64,25 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    public Map<String, Boolean> verifyEmail(@RequestParam("token") UUID token) {
+    public ResponseEntity<Void> verifyEmail(@RequestParam("token") UUID token) {
         emailVerificationService.verify(token);
-        return Map.of("verified", true);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(frontendProperties.normalizedBaseUrl() + "/dashboard"))
+                .build();
     }
 
     @PostMapping("/forgot-password")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void forgotPassword(@RequestBody ForgotPasswordRequest request) {
         passwordResetService.requestReset(request.email());
+    }
+
+    @GetMapping("/reset-password")
+    public ResponseEntity<Void> resetPasswordForm(@RequestParam("token") UUID token) {
+        passwordResetService.validateResetToken(token);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(frontendProperties.normalizedBaseUrl() + "/reset-password?token=" + token))
+                .build();
     }
 
     @PostMapping("/reset-password")

@@ -6,6 +6,8 @@ import com.ga.pixgen.model.JobStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,6 +15,9 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
 
     @Autowired
     private TestEntityManager em;
+
+    @Autowired
+    private JobRepository jobRepository;
 
     @Test
     void persistsJobWithAllFieldsAndDefaults() {
@@ -32,6 +37,7 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
         assertThat(saved.getSeed()).isEqualTo(42L);
         assertThat(saved.getSampler()).isEqualTo("euler");
         assertThat(saved.getModelId()).isEqualTo("runwayml/stable-diffusion-v1-5");
+        assertThat(saved.getInternalServiceJobId()).isNull();
         assertThat(saved.getCreditsCost()).isEqualTo(1);
         assertThat(saved.getProgress()).isZero();
         assertThat(saved.isCancelRequested()).isFalse();
@@ -57,6 +63,32 @@ class JobImageEntitiesPersistenceTest extends AbstractPostgresContainerTest {
         Job loaded = em.find(Job.class, job.getId());
         assertThat(loaded.getStatus()).isEqualTo(JobStatus.RUNNING);
         assertThat(loaded.getVersion()).isGreaterThan(initialVersion);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void updateProgress_commitsWithoutCallerTransaction_andTouchesVersion() {
+        Job saved = jobRepository.saveAndFlush(newJob(1L, JobStatus.RUNNING));
+        Long initialVersion = saved.getVersion();
+
+        int updated = jobRepository.updateProgress(saved.getId(), 45);
+
+        Job loaded = jobRepository.findById(saved.getId()).orElseThrow();
+        assertThat(updated).isEqualTo(1);
+        assertThat(loaded.getProgress()).isEqualTo(45);
+        assertThat(loaded.getVersion()).isGreaterThan(initialVersion);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void updateInternalServiceJobId_commitsWithoutCallerTransaction() {
+        Job saved = jobRepository.saveAndFlush(newJob(1L, JobStatus.RUNNING));
+
+        int updated = jobRepository.updateInternalServiceJobId(saved.getId(), "internal-job-123");
+
+        Job loaded = jobRepository.findById(saved.getId()).orElseThrow();
+        assertThat(updated).isEqualTo(1);
+        assertThat(loaded.getInternalServiceJobId()).isEqualTo("internal-job-123");
     }
 
     @Test

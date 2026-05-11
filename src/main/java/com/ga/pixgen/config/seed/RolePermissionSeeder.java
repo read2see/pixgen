@@ -87,21 +87,27 @@ public class RolePermissionSeeder implements CommandLineRunner, Ordered {
     }
 
     private void ensureRole(String name, Set<String> permissionNames, Map<String, Permission> permissions) {
-        if (roleRepository.findByName(name).isPresent()) {
-            return;
+        Role role = roleRepository.findByName(name).orElseGet(() -> {
+            Role created = new Role();
+            created.setName(name);
+            return created;
+        });
+        Set<Permission> wired = role.getPermissions();
+        if (wired == null) {
+            wired = new HashSet<>();
+            role.setPermissions(wired);
         }
-        Set<Permission> wired = new HashSet<>();
+        boolean changed = role.getId() == null;
         for (String permissionName : permissionNames) {
             Permission permission = permissions.get(permissionName);
             if (permission == null) {
                 throw new IllegalStateException(
                         "Cannot wire role '" + name + "': missing permission '" + permissionName + "'");
             }
-            wired.add(permission);
+            changed |= wired.add(permission);
         }
-        Role role = new Role();
-        role.setName(name);
-        role.setPermissions(wired);
-        roleRepository.save(role);
+        if (changed) {
+            roleRepository.save(role);
+        }
     }
 }

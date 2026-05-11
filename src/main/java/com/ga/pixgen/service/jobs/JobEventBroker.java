@@ -2,6 +2,7 @@ package com.ga.pixgen.service.jobs;
 
 import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.model.JobStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -31,6 +32,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class JobEventBroker {
 
+    private static final String HEARTBEAT_EVENT = "HEARTBEAT";
+    private static final String HEARTBEAT_DATA = "keepalive";
+
     /**
      * Default emitter timeout. SSE streams are long-lived; we set 30 minutes
      * so the reverse proxy or browser usually decides when to recycle the
@@ -57,7 +61,7 @@ public class JobEventBroker {
      * @return the SseEmitter result
      */
     public SseEmitter register(Long userId) {
-        return register(userId, null);
+        return register(userId, null, null);
     }
 
     /**
@@ -69,7 +73,21 @@ public class JobEventBroker {
      * @return the SseEmitter result
      */
     public SseEmitter register(Long userId, Long jobIdFilter) {
-        return register(new SseEmitter(timeoutMs), userId, jobIdFilter);
+        return register(userId, jobIdFilter, null);
+    }
+
+    /**
+     * Register an emitter and immediately deliver a current-state event to
+     * this emitter only. This closes the replay gap for per-job pages without
+     * rebroadcasting snapshots to other tabs.
+     *
+     * @param userId the user id value
+     * @param jobIdFilter the job id filter value
+     * @param initialEvent the initial event value
+     * @return the SseEmitter result
+     */
+    public SseEmitter register(Long userId, Long jobIdFilter, JobEventDto initialEvent) {
+        return register(new SseEmitter(timeoutMs), userId, jobIdFilter, initialEvent);
     }
 
     /**
@@ -98,6 +116,19 @@ public class JobEventBroker {
         return emitter;
     }
 
+    SseEmitter register(SseEmitter emitter, Long userId, Long jobIdFilter, JobEventDto initialEvent) {
+        SseEmitter registered = register(emitter, userId, jobIdFilter);
+        CopyOnWriteArrayList<EmitterRegistration> registrations = emittersByUser.get(userId);
+        EmitterRegistration registration = findRegistration(registrations, registered);
+        if (registration != null) {
+            sendHeartbeat(registrations, registration);
+            if (initialEvent != null) {
+                sendEvent(registrations, registration, initialEvent);
+            }
+        }
+        return registered;
+    }
+
     /**
      * Fan a single event out to every registered emitter that belongs to
      * {@code event.userId()} and either has no job filter or has a filter
@@ -121,21 +152,21 @@ public class JobEventBroker {
                     && !registration.jobIdFilter.equals(event.jobId())) {
                 continue;
             }
-            SseEmitter.SseEventBuilder builder = SseEmitter.event()
-                    .name(event.type())
-                    .data(event);
-            if (event.jobId() != null) {
-                builder.id(String.valueOf(event.jobId()));
-            }
-            try {
-                registration.emitter.send(builder);
-            } catch (IOException | IllegalStateException ex) {
-                registrations.remove(registration);
-                try {
-                    registration.emitter.completeWithError(ex);
-                } catch (RuntimeException ignored) {
-                    // Already completed by the container; nothing more to do.
-                }
+            sendEvent(registrations, registration, event);
+        }
+    }
+
+    /**
+     * Periodic keepalive for browsers, proxies and load balancers that close
+     * quiet event-stream responses. Heartbeats are deliberately not published
+     * through {@link #publish(JobEventDto)} because job-filtered emitters must
+     * receive them even though no job-specific state changed.
+     */
+    @Scheduled(fixedRateString = "${app.jobs.sse-heartbeat-ms:15000}")
+    public void publishHeartbeats() {
+        for (CopyOnWriteArrayList<EmitterRegistration> registrations : emittersByUser.values()) {
+            for (EmitterRegistration registration : registrations) {
+                sendHeartbeat(registrations, registration);
             }
         }
     }
@@ -208,6 +239,53 @@ public class JobEventBroker {
         if (list != null) {
             list.remove(registration);
         }
+    }
+
+    private void sendEvent(CopyOnWriteArrayList<EmitterRegistration> registrations,
+                           EmitterRegistration registration,
+                           JobEventDto event) {
+        SseEmitter.SseEventBuilder builder = SseEmitter.event()
+                .name(event.type())
+                .data(event);
+        if (event.jobId() != null) {
+            builder.id(String.valueOf(event.jobId()));
+        }
+        send(registrations, registration, builder);
+    }
+
+    private void sendHeartbeat(CopyOnWriteArrayList<EmitterRegistration> registrations,
+                               EmitterRegistration registration) {
+        send(registrations, registration, SseEmitter.event()
+                .name(HEARTBEAT_EVENT)
+                .data(HEARTBEAT_DATA));
+    }
+
+    private void send(CopyOnWriteArrayList<EmitterRegistration> registrations,
+                      EmitterRegistration registration,
+                      SseEmitter.SseEventBuilder builder) {
+        try {
+            registration.emitter.send(builder);
+        } catch (IOException | IllegalStateException ex) {
+            registrations.remove(registration);
+            try {
+                registration.emitter.completeWithError(ex);
+            } catch (RuntimeException ignored) {
+                // Already completed by the container; nothing more to do.
+            }
+        }
+    }
+
+    private EmitterRegistration findRegistration(CopyOnWriteArrayList<EmitterRegistration> registrations,
+                                                 SseEmitter emitter) {
+        if (registrations == null) {
+            return null;
+        }
+        for (EmitterRegistration registration : registrations) {
+            if (registration.emitter == emitter) {
+                return registration;
+            }
+        }
+        return null;
     }
 
     /**

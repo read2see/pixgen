@@ -9,7 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
@@ -18,6 +17,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
@@ -78,6 +79,9 @@ public class Job {
     @Column(name = "model_id", length = 256)
     private String modelId;
 
+    @Column(name = "internal_service_job_id", length = 128)
+    private String internalServiceJobId;
+
     @Column(name = "credits_cost", nullable = false)
     private Integer creditsCost;
 
@@ -106,17 +110,16 @@ public class Job {
     @Column(nullable = false)
     private Long version;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
         if (this.status == null) {
             this.status = JobStatus.PENDING;
         }
@@ -126,10 +129,5 @@ public class Job {
         if (this.creditsCost == null) {
             this.creditsCost = 0;
         }
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        this.updatedAt = Instant.now();
     }
 }

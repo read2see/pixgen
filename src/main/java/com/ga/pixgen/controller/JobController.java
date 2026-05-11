@@ -1,6 +1,7 @@
 package com.ga.pixgen.controller;
 
 import com.ga.pixgen.dto.CreateJobRequest;
+import com.ga.pixgen.dto.JobEventDto;
 import com.ga.pixgen.dto.JobResponse;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
@@ -103,6 +104,9 @@ public class JobController {
     public SseEmitter streamJob(@PathVariable Long id,
                                 @AuthenticationPrincipal CustomUserDetails principal) {
         Job job = jobService.get(id, principal.getUser());
-        return jobEventBroker.register(job.getUserId(), job.getId());
+        return jobEventBroker.register(
+                job.getUserId(),
+                job.getId(),
+                JobEventDto.snapshot(job.getId(), job.getUserId(), job.getStatus(), job.getProgress(), job.getErrorMessage()));
     }
 }

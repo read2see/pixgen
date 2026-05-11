@@ -31,8 +31,34 @@ public record ImageResponse(
         Integer clipSkip,
         String lorasJson,
         String extrasJson,
-        Instant createdAt
+        Instant createdAt,
+        Instant updatedAt,
+        String fileUrlTemplate
 ) {
+
+    public ImageResponse(Long id,
+                         Long userId,
+                         Long jobId,
+                         String prompt,
+                         String negativePrompt,
+                         String mimeType,
+                         Long fileSizeBytes,
+                         Integer width,
+                         Integer height,
+                         String modelId,
+                         String sampler,
+                         Integer numInferenceSteps,
+                         Double guidanceScale,
+                         Long seed,
+                         String scheduler,
+                         Integer clipSkip,
+                         String lorasJson,
+                         String extrasJson,
+                         Instant createdAt) {
+        this(id, userId, jobId, prompt, negativePrompt, mimeType, fileSizeBytes, width, height, modelId,
+                sampler, numInferenceSteps, guidanceScale, seed, scheduler, clipSkip, lorasJson, extrasJson,
+                createdAt, null, null);
+    }
 
     public static ImageResponse fromEntity(Image image) {
         return new ImageResponse(
@@ -54,6 +80,8 @@ public record ImageResponse(
                 image.getClipSkip(),
                 image.getLorasJson(),
                 image.getExtrasJson(),
-                image.getCreatedAt());
+                image.getCreatedAt(),
+                image.getUpdatedAt(),
+                "/api/images/{id}/file");
     }
 }

@@ -1,5 +1,6 @@
 package com.ga.pixgen.service.posts;
 
+import com.ga.pixgen.dto.AuthorResponse;
 import com.ga.pixgen.dto.CreatePostRequest;
 import com.ga.pixgen.dto.PostResponse;
 import com.ga.pixgen.exception.CommunityValidationException;
@@ -13,6 +14,7 @@ import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.ImageRepository;
 import com.ga.pixgen.repository.PostImageRepository;
 import com.ga.pixgen.repository.PostRepository;
+import com.ga.pixgen.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,6 +37,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
     private final ImageRepository imageRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public PostResponse create(User actor, CreatePostRequest request) {
@@ -56,7 +60,7 @@ public class PostService {
         Post saved = postRepository.save(post);
 
         List<PostImage> savedImages = postImageRepository.saveAll(toPostImages(saved, imageIds, imagesById));
-        return PostResponse.fromEntity(saved, savedImages);
+        return PostResponse.fromEntity(saved, savedImages, AuthorResponse.fromEntity(actor));
     }
 
     @Transactional(readOnly = true)
@@ -66,15 +70,23 @@ public class PostService {
                 PostVisibility.PUBLIC,
                 pageable);
         Map<Long, List<PostImage>> imagesByPostId = imagesByPostId(posts.getContent());
+        Map<Long, AuthorResponse> authorsById = authorsById(posts.getContent().stream()
+                .map(Post::getUserId)
+                .collect(Collectors.toSet()));
         return posts.map(post -> PostResponse.fromEntity(
                 post,
-                imagesByPostId.getOrDefault(post.getId(), List.of())));
+                imagesByPostId.getOrDefault(post.getId(), List.of()),
+                authorsById.get(post.getUserId())));
     }
 
     @Transactional(readOnly = true)
     public PostResponse getPublic(Long id) {
         Post post = getPublicPost(id);
-        return PostResponse.fromEntity(post, postImageRepository.findByPost_IdOrderBySortOrderAsc(post.getId()));
+        AuthorResponse author = authorsById(Set.of(post.getUserId())).get(post.getUserId());
+        return PostResponse.fromEntity(
+                post,
+                postImageRepository.findByPost_IdOrderBySortOrderAsc(post.getId()),
+                author);
     }
 
     @Transactional(readOnly = true)
@@ -126,5 +138,16 @@ public class PostService {
             grouped.computeIfAbsent(image.getPost().getId(), ignored -> new java.util.ArrayList<>()).add(image);
         }
         return grouped;
+    }
+
+    private Map<Long, AuthorResponse> authorsById(Set<Long> userIds) {
+        Set<Long> ids = userIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, AuthorResponse::fromEntity));
     }
 }

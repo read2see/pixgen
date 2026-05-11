@@ -59,6 +59,24 @@ public class PasswordResetService {
 
     @Transactional
     public void resetPassword(UUID tokenId, String newPassword) {
+        Token token = requireValidResetToken(tokenId);
+
+        User user = userRepository.findByEmail(token.getEmail())
+                .orElseThrow(() -> new InvalidTokenException("Token references unknown user"));
+
+        token.setUsed(true);
+        tokenRepository.save(token);
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public void validateResetToken(UUID tokenId) {
+        requireValidResetToken(tokenId);
+    }
+
+    private Token requireValidResetToken(UUID tokenId) {
         Token token = tokenRepository.findById(tokenId)
                 .orElseThrow(() -> new InvalidTokenException("Token not found"));
 
@@ -71,14 +89,6 @@ public class PasswordResetService {
         if (token.getExpiresAt().isBefore(Instant.now())) {
             throw new ExpiredTokenException("Token has expired");
         }
-
-        User user = userRepository.findByEmail(token.getEmail())
-                .orElseThrow(() -> new InvalidTokenException("Token references unknown user"));
-
-        token.setUsed(true);
-        tokenRepository.save(token);
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        return token;
     }
 }

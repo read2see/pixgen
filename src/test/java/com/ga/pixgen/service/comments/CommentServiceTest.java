@@ -9,6 +9,7 @@ import com.ga.pixgen.model.CommentStatus;
 import com.ga.pixgen.model.Post;
 import com.ga.pixgen.model.User;
 import com.ga.pixgen.repository.CommentRepository;
+import com.ga.pixgen.repository.UserRepository;
 import com.ga.pixgen.service.posts.PostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,11 +36,14 @@ class CommentServiceTest {
     @Mock
     private PostService postService;
 
+    @Mock
+    private UserRepository userRepository;
+
     private CommentService commentService;
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(commentRepository, postService, new CommentProperties(3));
+        commentService = new CommentService(commentRepository, postService, new CommentProperties(3), userRepository);
     }
 
     @Test
@@ -121,15 +125,22 @@ class CommentServiceTest {
         when(postService.getPublicPost(100L)).thenReturn(new Post());
         when(commentRepository.findByPostIdAndStatusAndDeletedAtIsNullOrderByPathAsc(100L, CommentStatus.VISIBLE))
                 .thenReturn(List.of(root, child));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user(42L, "creator")));
 
         List<CommentResponse> responses = commentService.list(100L);
 
         assertThat(responses).extracting(CommentResponse::path).containsExactly("0.1", "0.1.2");
+        assertThat(responses).extracting(CommentResponse::username).containsExactly("creator", "creator");
     }
 
     private static User user(Long id) {
+        return user(id, null);
+    }
+
+    private static User user(Long id, String username) {
         User user = new User();
         user.setId(id);
+        user.setUsername(username);
         return user;
     }
 

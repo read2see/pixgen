@@ -168,6 +168,26 @@ class RolePermissionSeederTest {
     }
 
     @Test
+    void run_backfillsMissingPermissions_onExistingRole() throws Exception {
+        Permission existingRead = new Permission();
+        existingRead.setId(101L);
+        existingRead.setPermission("user.read");
+        permissionStore.put(existingRead.getPermission(), existingRead);
+
+        Role existingUser = new Role();
+        existingUser.setId(77L);
+        existingUser.setName("USER");
+        existingUser.setPermissions(new java.util.HashSet<>(Set.of(existingRead)));
+        roleStore.put("USER", existingUser);
+
+        seeder.run();
+
+        assertThat(roleStore.get("USER").getId()).isEqualTo(77L);
+        assertThat(permissionNames(roleStore.get("USER")))
+                .containsExactlyInAnyOrderElementsOf(EXPECTED_USER);
+    }
+
+    @Test
     void run_isIdempotent_acrossMultipleInvocations() throws Exception {
         seeder.run();
         seeder.run();

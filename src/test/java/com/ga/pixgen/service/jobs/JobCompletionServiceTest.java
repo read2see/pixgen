@@ -17,6 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,6 +106,18 @@ class JobCompletionServiceTest {
         assertThat(savedImage.getWidth()).isEqualTo(64);
         assertThat(savedImage.getHeight()).isEqualTo(32);
 
+        verify(jobRepository).markSucceeded(101L);
+    }
+
+    @Test
+    void completeSuccess_skipsCreditDeduction_whenJobHasNoCreditCost() {
+        job.setCreditsCost(0);
+
+        boolean result = completionService.completeSuccess(job, stored);
+
+        assertThat(result).isTrue();
+        verify(userRepository, never()).deductCreditsIfSufficient(anyLong(), anyInt());
+        verify(imageRepository).save(any(Image.class));
         verify(jobRepository).markSucceeded(101L);
     }
 }

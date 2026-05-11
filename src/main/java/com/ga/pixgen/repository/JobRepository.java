@@ -3,16 +3,18 @@ package com.ga.pixgen.repository;
 import com.ga.pixgen.model.Job;
 import com.ga.pixgen.model.JobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface JobRepository extends JpaRepository<Job, Long> {
+public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificationExecutor<Job> {
 
     @Query(value = """
             SELECT j.*
@@ -53,6 +55,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * @return the int result
      */
     @Modifying
+    @Transactional
     @Query("""
             UPDATE Job j
                SET j.status = com.ga.pixgen.model.JobStatus.CANCELLED
@@ -71,6 +74,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * @return the int result
      */
     @Modifying
+    @Transactional
     @Query("""
             UPDATE Job j
                SET j.cancelRequested = true
@@ -89,13 +93,33 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * @return the int updateProgress(@Param("id") Long id, result
      */
     @Modifying
-    @Query("""
-            UPDATE Job j
-               SET j.progress = :progress
-             WHERE j.id = :id
-               AND j.status = com.ga.pixgen.model.JobStatus.RUNNING
-            """)
+    @Transactional
+    @Query(value = """
+            UPDATE jobs
+               SET progress = :progress,
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE id = :id
+               AND status = 'RUNNING'
+            """, nativeQuery = true)
     int updateProgress(@Param("id") Long id, @Param("progress") int progress);
+
+    /**
+     * Persist the internal service job identifier returned by
+     * {@code POST /api/v1/generate} so an in-flight PixGen job can be traced
+     * back to the upstream service while progress/image retrieval continues.
+     */
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE jobs
+               SET internal_service_job_id = :internalJobId,
+                   updated_at = NOW(),
+                   version = version + 1
+             WHERE id = :id
+               AND status = 'RUNNING'
+            """, nativeQuery = true)
+    int updateInternalServiceJobId(@Param("id") Long id, @Param("internalJobId") String internalJobId);
 
     /**
      * Atomically flip a {@code RUNNING} job to {@code SUCCEEDED}, force
@@ -104,6 +128,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * touch the {@code @Version} column on the cached entity.
      */
     @Modifying
+    @Transactional
     @Query(value = """
             UPDATE jobs
                SET status = 'SUCCEEDED',
@@ -121,6 +146,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * state, persisting the supplied error message.
      */
     @Modifying
+    @Transactional
     @Query(value = """
             UPDATE jobs
                SET status = 'FAILED',
@@ -140,6 +166,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * flag set by another instance.
      */
     @Modifying
+    @Transactional
     @Query(value = """
             UPDATE jobs
                SET status = 'CANCELLED',
@@ -193,6 +220,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * Returns the number of rows reset.
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
     @Query(value = """
             UPDATE jobs
                SET status = 'PENDING',

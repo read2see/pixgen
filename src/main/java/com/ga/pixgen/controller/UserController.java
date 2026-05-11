@@ -1,7 +1,14 @@
 package com.ga.pixgen.controller;
 
+import com.ga.pixgen.dto.IncreaseCreditsRequest;
+import com.ga.pixgen.dto.UserResponse;
+import com.ga.pixgen.dto.UserStatsResponse;
+import com.ga.pixgen.model.User;
 import com.ga.pixgen.security.CustomUserDetails;
+import com.ga.pixgen.service.UserCreditService;
+import com.ga.pixgen.service.UserStatsService;
 import com.ga.pixgen.service.profile.ProfileImageService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -12,7 +19,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +37,8 @@ import java.util.Map;
 public class UserController {
 
     private final ProfileImageService profileImageService;
+    private final UserCreditService userCreditService;
+    private final UserStatsService userStatsService;
 
     @GetMapping("/me")
     @PreAuthorize("hasAuthority('user.read')")
@@ -35,6 +46,12 @@ public class UserController {
         Map<String, Object> body = new HashMap<>();
         body.put("name", authentication.getName());
         return body;
+    }
+
+    @GetMapping("/me/stats")
+    @PreAuthorize("hasAuthority('user.read')")
+    public UserStatsResponse stats(@AuthenticationPrincipal CustomUserDetails principal) {
+        return userStatsService.getStats(principal.getUser());
     }
 
     @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -57,5 +74,13 @@ public class UserController {
                 .contentLength(body.contentLength())
                 .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
                 .body(body);
+    }
+
+    @PostMapping("/{id}/credits/increase")
+    @PreAuthorize("hasAuthority('credits.grant')")
+    public UserResponse increaseCredits(@PathVariable Long id,
+                                        @Valid @RequestBody IncreaseCreditsRequest request) {
+        User updated = userCreditService.increaseCredits(id, request.amount());
+        return UserResponse.fromEntity(updated);
     }
 }

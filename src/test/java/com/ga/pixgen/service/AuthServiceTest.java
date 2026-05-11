@@ -66,7 +66,7 @@ class AuthServiceTest {
         assertThat(saved.getRole()).isSameAs(userRole);
         assertThat(saved.isVerified()).isFalse();
         assertThat(saved.isEnabled()).isTrue();
-        assertThat(saved.getCredits()).isZero();
+        assertThat(saved.getCredits()).isEqualTo(50);
         verify(userRepository).save(any(User.class));
     }
 
