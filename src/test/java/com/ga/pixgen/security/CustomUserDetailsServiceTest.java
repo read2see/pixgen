@@ -51,7 +51,7 @@ class CustomUserDetailsServiceTest {
         user.setVerified(true);
         user.setRole(role);
 
-        when(userRepository.findByEmail("carol@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailAndDeletedAtIsNull("carol@example.com")).thenReturn(Optional.of(user));
 
         UserDetails details = service.loadUserByUsername("carol@example.com");
 
@@ -68,7 +68,7 @@ class CustomUserDetailsServiceTest {
 
     @Test
     void loadUserByUsername_throwsUsernameNotFound_whenUserMissing() {
-        when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailAndDeletedAtIsNull("ghost@example.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.loadUserByUsername("ghost@example.com"))
                 .isInstanceOf(UsernameNotFoundException.class);

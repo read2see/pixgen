@@ -13,7 +13,8 @@ public record UserResponse(
         Integer credits,
         String role,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant deletedAt
 ) {
     public static UserResponse fromEntity(User user) {
         return new UserResponse(
@@ -25,7 +26,8 @@ public record UserResponse(
                 user.getCredits(),
                 user.getRole() != null ? user.getRole().getName() : null,
                 user.getCreatedAt(),
-                user.getUpdatedAt()
+                user.getUpdatedAt(),
+                user.getDeletedAt()
         );
     }
 }

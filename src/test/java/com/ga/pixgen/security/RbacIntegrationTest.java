@@ -90,9 +90,9 @@ class RbacIntegrationTest {
     void stubUserLookups() {
         // Used by tests that rely on @WithUserDetails to resolve a user via the
         // real CustomUserDetailsService -> UserRepository.findByEmail path.
-        when(userRepository.findByEmail("admin@pixgen.local"))
+        when(userRepository.findByEmailAndDeletedAtIsNull("admin@pixgen.local"))
                 .thenReturn(Optional.of(adminUser()));
-        when(userRepository.findByEmail("reader@pixgen.local"))
+        when(userRepository.findByEmailAndDeletedAtIsNull("reader@pixgen.local"))
                 .thenReturn(Optional.of(readerUser()));
     }
 
