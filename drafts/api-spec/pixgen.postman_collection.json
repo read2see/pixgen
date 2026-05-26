@@ -1,0 +1,1302 @@
+{
+  "info": {
+    "name": "PixGen API",
+    "description": "Postman collection generated from the Spring controller API surface. Private endpoints use the HTTP-only auth cookie set by POST /api/auth/login.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"username\": \"pixgen_user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Public. Register a new user account and issue an email verification token."
+          }
+        },
+        {
+          "name": "Send Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/send-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "send-verification"
+              ]
+            },
+            "description": "Public. Issue or resend an email verification token for the supplied email address."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email?token=00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "Public. Verify an email address by token and redirect to the front-end dashboard."
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Public. Request a password reset token for the supplied email address."
+          }
+        },
+        {
+          "name": "Reset Password Redirect",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password?token=00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            },
+            "description": "Public. Validate a password reset token and redirect to the front-end reset-password page."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Public. Reset a password using a valid reset token."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password123!\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Private. Change the authenticated user's password."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Public. Authenticate a user and set the HTTP-only JWT cookie."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Public. Clear the HTTP-only JWT cookie."
+          }
+        },
+        {
+          "name": "Current Auth User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Private. Return the authenticated user's full profile."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Current User Principal",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Private. Return the authenticated principal name."
+          }
+        },
+        {
+          "name": "Current User Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "stats"
+              ]
+            },
+            "description": "Private. Return the authenticated user's usage statistics."
+          }
+        },
+        {
+          "name": "Upload Profile Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/profile-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "profile-image"
+              ]
+            },
+            "description": "Private. Upload and replace the authenticated user's profile image using multipart form data."
+          }
+        },
+        {
+          "name": "Get Profile Image File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/profile-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "profile-image"
+              ]
+            },
+            "description": "Private. Return the authenticated user's profile image file."
+          }
+        },
+        {
+          "name": "Increase User Credits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/1/credits/increase",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "1",
+                "credits",
+                "increase"
+              ]
+            },
+            "description": "Private. Increase a user's credit balance; requires the credits.grant authority."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generation",
+      "item": [
+        {
+          "name": "List Generation Models",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/generation/models",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "generation",
+                "models"
+              ]
+            },
+            "description": "Private. List available image generation model options; requires the job.create authority."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Create Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"A cinematic mountain landscape at sunrise\",\n  \"negativePrompt\": \"blurry, low quality\",\n  \"width\": 1024,\n  \"height\": 1024,\n  \"numInferenceSteps\": 30,\n  \"guidanceScale\": 7.5,\n  \"seed\": 123456789,\n  \"sampler\": \"default\",\n  \"modelId\": \"stable-diffusion-xl\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs"
+              ]
+            },
+            "description": "Private. Create and enqueue an image generation job for the authenticated user."
+          }
+        },
+        {
+          "name": "Get Job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "1"
+              ]
+            },
+            "description": "Private. Return a specific job owned by, or otherwise visible to, the authenticated user."
+          }
+        },
+        {
+          "name": "List My Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/me?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List the authenticated user's jobs, optionally filtered by status."
+          }
+        },
+        {
+          "name": "Cancel Job",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/1/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "1",
+                "cancel"
+              ]
+            },
+            "description": "Private. Request cancellation of a job visible to the authenticated user."
+          }
+        },
+        {
+          "name": "Stream My Job Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "stream"
+              ]
+            },
+            "description": "Private. Open a server-sent events stream for the authenticated user's job updates."
+          }
+        },
+        {
+          "name": "Stream One Job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/1/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "1",
+                "stream"
+              ]
+            },
+            "description": "Private. Open a server-sent events stream for one job visible to the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "item": [
+        {
+          "name": "List My Images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/images/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "images",
+                "me"
+              ]
+            },
+            "description": "Private. List images owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Get Image Metadata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/images/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "images",
+                "1"
+              ]
+            },
+            "description": "Private. Return metadata for an image visible to the authenticated user."
+          }
+        },
+        {
+          "name": "Get Image File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/images/1/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "images",
+                "1",
+                "file"
+              ]
+            },
+            "description": "Private. Return the image file for an image visible to the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My first generated image\",\n  \"body\": \"Created with PixGen.\",\n  \"visibility\": \"PUBLIC\",\n  \"imageIds\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts"
+              ]
+            },
+            "description": "Private. Create a post for the authenticated user; requires the post.create authority."
+          }
+        },
+        {
+          "name": "Public Post Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts?page=0&size=20&sort=createdAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Public. Return the public post feed with pageable sorting."
+          }
+        },
+        {
+          "name": "Get Public Post",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                "1"
+              ]
+            },
+            "description": "Public. Return a public post by ID."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentId\": null,\n  \"body\": \"Amazing image.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/1/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                "1",
+                "comments"
+              ]
+            },
+            "description": "Private. Create a comment on a post for the authenticated user; requires the comment.create authority."
+          }
+        },
+        {
+          "name": "List Post Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/1/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                "1",
+                "comments"
+              ]
+            },
+            "description": "Public. List public comments for a post in threaded order."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Admin Ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "ping"
+              ]
+            },
+            "description": "Private. Return an admin-only health check response."
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?q=user&role=USER&enabled=true&deleted=false&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "user",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "USER",
+                  "disabled": true
+                },
+                {
+                  "key": "enabled",
+                  "value": "true",
+                  "disabled": true
+                },
+                {
+                  "key": "deleted",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List users with optional query, role, enabled, deleted, and pageable filters."
+          }
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/1/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1",
+                "suspend"
+              ]
+            },
+            "description": "Private. Suspend a user; requires the user.delete authority."
+          }
+        },
+        {
+          "name": "Soft Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1"
+              ]
+            },
+            "description": "Private. Soft-delete a user; requires the user.delete authority."
+          }
+        },
+        {
+          "name": "Change User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"MODERATOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/1/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1",
+                "role"
+              ]
+            },
+            "description": "Private. Change a user's role; requires the role.manage authority."
+          }
+        },
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/jobs?status=PENDING&user_id=1&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "jobs"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true
+                },
+                {
+                  "key": "user_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59Z",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List jobs with optional status, user ID, date range, and pageable filters."
+          }
+        },
+        {
+          "name": "List Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/posts?status=PUBLISHED&visibility=PUBLIC&author_username=pixgen_user&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PUBLISHED",
+                  "disabled": true
+                },
+                {
+                  "key": "visibility",
+                  "value": "PUBLIC",
+                  "disabled": true
+                },
+                {
+                  "key": "author_username",
+                  "value": "pixgen_user",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List posts with optional status, visibility, author username, and pageable filters."
+          }
+        },
+        {
+          "name": "List Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/comments?status=VISIBLE&author_username=pixgen_user&post_id=1&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "VISIBLE",
+                  "disabled": true
+                },
+                {
+                  "key": "author_username",
+                  "value": "pixgen_user",
+                  "disabled": true
+                },
+                {
+                  "key": "post_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List comments with optional status, author username, post ID, and pageable filters."
+          }
+        },
+        {
+          "name": "List Images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/images?user_id=1&job_id=1&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "job_id",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List images with optional user ID, job ID, and pageable filters."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Moderator",
+      "item": [
+        {
+          "name": "List Posts For Moderation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/moderator/posts?status=PUBLISHED&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "moderator",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PUBLISHED",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List posts for moderation with optional status and pageable filters."
+          }
+        },
+        {
+          "name": "List Comments For Moderation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/moderator/comments?status=VISIBLE&page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "moderator",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "VISIBLE",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List comments for moderation with optional status and pageable filters."
+          }
+        },
+        {
+          "name": "List Images For Moderation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/moderator/images?page=0&size=20&sort=updatedAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "moderator",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "updatedAt,desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Private. List images for moderation with pageable filters."
+          }
+        },
+        {
+          "name": "Hide Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Violates community guidelines.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/moderator/posts/1/hide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "moderator",
+                "posts",
+                "1",
+                "hide"
+              ]
+            },
+            "description": "Private. Hide a post as a moderator or admin."
+          }
+        },
+        {
+          "name": "Hide Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Violates community guidelines.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/moderator/comments/1/hide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "moderator",
+                "comments",
+                "1",
+                "hide"
+              ]
+            },
+            "description": "Private. Hide a comment as a moderator or admin."
+          }
+        }
+      ]
+    }
+  ]
+}
